@@ -90,34 +90,59 @@ export class SheetsClient {
       console.log('SheetsClient: API Response received, values count:', response.data.values?.length);
       
       const values = response.data.values;
-      if (!values) return null;
+      if (!values || values.length < 2) return null;
+
+      // Đọc header row để xác định index của từng cột
+      const headers = values[0];
+      console.log('SheetsClient: Header row:', headers);
+      
+      // Tìm index của từng field dựa trên tên cột
+      const emailIndex = headers.findIndex(h => h && h.toLowerCase().includes('email'));
+      const idIndex = headers.findIndex(h => h && h.toLowerCase().includes('employee_id'));
+      const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
+      const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
+      const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+      
+      console.log('SheetsClient: Column indexes:', {
+        emailIndex, idIndex, nameIndex, deptIndex, positionIndex
+      });
+
+      // Kiểm tra xem có tìm thấy cột email không
+      if (emailIndex === -1) {
+        console.error('SheetsClient: Email column not found in headers:', headers);
+        return null;
+      }
 
       // Log danh sách tất cả employees để debug
       console.log('SheetsClient: === DANH SÁCH TẤT CẢ EMPLOYEES ===');
-      console.log('SheetsClient: Header row:', values[0]);
+      console.log('SheetsClient: Header row:', headers);
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row.length >= 3) {
-          console.log(`SheetsClient: Row ${i}: ID="${row[0]}" | Name="${row[1]}" | Email="${row[2]}" | Dept="${row[3] || 'N/A'}" | Position="${row[4] || 'N/A'}"`);
+        if (row.length > emailIndex && row[emailIndex]) {
+          console.log(`SheetsClient: Row ${i}: ID="${row[idIndex] || 'N/A'}" | Name="${row[nameIndex] || 'N/A'}" | Email="${row[emailIndex]}" | Dept="${row[deptIndex] || 'N/A'}" | Position="${row[positionIndex] || 'N/A'}"`);
         } else if (row.length > 0) {
           console.log(`SheetsClient: Row ${i}: Incomplete data:`, row);
         }
       }
       console.log('SheetsClient: === END EMPLOYEE LIST ===');
 
-      // Bỏ qua header row (index 0)
+      // Bỏ qua header row (index 0) và tìm kiếm employee
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        // CHÍNH XÁC: Email ở column E (index 4), không phải column C (index 2)
-        if (row[4] === email) { // Column E = email (dựa trên logs thực tế)
-          console.log('SheetsClient: Found employee:', { employee_id: row[0], name: row[1], email: row[4] });
+        // Sử dụng emailIndex dynamic thay vì hard-coded index
+        if (row[emailIndex] === email) {
+          console.log('SheetsClient: Found employee:', { 
+            employee_id: row[idIndex], 
+            name: row[nameIndex], 
+            email: row[emailIndex] 
+          });
           return {
-            employee_id: row[0] || '',
-            name: row[1] || '',
-            email: row[4] || '',        // Column E = email
-            department: row[2] || '',   // Column C = department  
-            position: row[3] || '',     // Column D = position
-            status: row[5] || ''        // Column F = status (nếu có)
+            employee_id: row[idIndex] || '',
+            name: row[nameIndex] || '',
+            email: row[emailIndex] || '',
+            department: row[deptIndex] || '',
+            position: row[positionIndex] || '',
+            status: row[5] || '' // Status có thể ở cột cuối
           };
         }
       }
@@ -146,21 +171,39 @@ export class SheetsClient {
       });
 
       const values = response.data.values;
-      if (!values) return [];
+      if (!values || values.length < 2) return [];
+
+      // Đọc header row để xác định index của từng cột
+      const headers = values[0];
+      console.log('SheetsClient: ASSIGNMENTS Header row:', headers);
+      
+      // Tìm index của từng field
+      const reviewerEmailIndex = headers.findIndex(h => h && h.toLowerCase().includes('reviewer_email'));
+      const assignmentIdIndex = headers.findIndex(h => h && h.toLowerCase().includes('assignment_id'));
+      const revieweeIdIndex = headers.findIndex(h => h && h.toLowerCase().includes('reviewee_employee_id'));
+      const periodIndex = headers.findIndex(h => h && h.toLowerCase().includes('period'));
+      const criteriaGroupIndex = headers.findIndex(h => h && h.toLowerCase().includes('criteria_group'));
+      const statusIndex = headers.findIndex(h => h && h.toLowerCase().includes('status'));
+      
+      console.log('SheetsClient: ASSIGNMENTS Column indexes:', {
+        reviewerEmailIndex, assignmentIdIndex, revieweeIdIndex, periodIndex, criteriaGroupIndex, statusIndex
+      });
 
       const assignments: Assignment[] = [];
 
-      // Bỏ qua header row (index 0)
+      // Bỏ qua header row (index 0) và tìm assignments
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[1] === reviewerEmail) { // Column B = reviewer_email
+        
+        // Kiểm tra reviewer_email nếu tìm thấy cột đó
+        if (reviewerEmailIndex !== -1 && row[reviewerEmailIndex] === reviewerEmail) {
           assignments.push({
-            assignment_id: row[0] || '',
-            reviewer_email: row[1] || '',
-            reviewee_employee_id: row[2] || '',
-            period: row[3] || '',
-            criteria_group: row[4] || '',
-            status: row[5] || ''
+            assignment_id: row[assignmentIdIndex] || '',
+            reviewer_email: row[reviewerEmailIndex] || '',
+            reviewee_employee_id: row[revieweeIdIndex] || '',
+            period: row[periodIndex] || '',
+            criteria_group: row[criteriaGroupIndex] || '',
+            status: row[statusIndex] || ''
           });
         }
       }
@@ -183,21 +226,39 @@ export class SheetsClient {
       });
 
       const values = response.data.values;
-      if (!values) return [];
+      if (!values || values.length < 2) return [];
+
+      // Đọc header row để xác định index của từng cột
+      const headers = values[0];
+      console.log('SheetsClient: CRITERIA Header row:', headers);
+      
+      // Tìm index của từng field
+      const criteriaIdIndex = headers.findIndex(h => h && h.toLowerCase().includes('criteria_id'));
+      const criteriaGroupIndex = headers.findIndex(h => h && h.toLowerCase().includes('criteria_group'));
+      const criteriaNameIndex = headers.findIndex(h => h && h.toLowerCase().includes('criteria_name'));
+      const descriptionIndex = headers.findIndex(h => h && h.toLowerCase().includes('description'));
+      const weightIndex = headers.findIndex(h => h && h.toLowerCase().includes('weight'));
+      const typeIndex = headers.findIndex(h => h && h.toLowerCase().includes('type'));
+      
+      console.log('SheetsClient: CRITERIA Column indexes:', {
+        criteriaIdIndex, criteriaGroupIndex, criteriaNameIndex, descriptionIndex, weightIndex, typeIndex
+      });
 
       const criteria: Criterion[] = [];
 
-      // Bỏ qua header row (index 0)
+      // Bỏ qua header row (index 0) và tìm criteria
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[1] === criteriaGroup) { // Column B = criteria_group
+        
+        // Kiểm tra criteria_group nếu tìm thấy cột đó
+        if (criteriaGroupIndex !== -1 && row[criteriaGroupIndex] === criteriaGroup) {
           criteria.push({
-            criteria_id: row[0] || '',
-            criteria_group: row[1] || '',
-            criteria_name: row[2] || '',
-            description: row[3] || '',
-            weight: parseInt(row[4]) || 0,
-            type: row[5] || ''
+            criteria_id: row[criteriaIdIndex] || '',
+            criteria_group: row[criteriaGroupIndex] || '',
+            criteria_name: row[criteriaNameIndex] || '',
+            description: row[descriptionIndex] || '',
+            weight: parseInt(row[weightIndex]) || 0,
+            type: row[typeIndex] || ''
           });
         }
       }
