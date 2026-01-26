@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>SIRA - Mini App Đánh Giá</title>
+</head>
+
+<body>
+  <h2>Mini App Đánh Giá</h2>
+  <button id="login">Đăng nhập Google</button>
+  <pre id="out"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+    // 🔥 LẤY CONFIG Ở: Firebase Console → Project settings → General → Your apps (Web)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU",
+      authDomain: "tmas-5f48e.firebaseapp.com",
+      projectId: "tmas-5f48e",
+      storageBucket: "tmas-5f48e.firebasestorage.app",
+      messagingSenderId: "256219032535",
+      appId: "1:256219032535:web:982400f879da9b43cd3992",
+      measurementId: "G-MXJB7G7KYT"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const out = document.getElementById("out");
+    const btn = document.getElementById("login");
+
+    btn.onclick = async () => {
+      try {
+        out.textContent = "Đang login...";
+        const provider = new GoogleAuthProvider();
+        
+        // Thêm scope và parameters để tránh lỗi
+        provider.addScope('email');
+        provider.addScope('profile');
+        provider.setCustomParameters({
+          'prompt': 'select_account'
+        });
+
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const idToken = await user.getIdToken();
+
+        out.textContent = `✅ Đăng nhập thành công!
+        
+📧 Email: ${user.email}
+👤 Tên: ${user.displayName}
+🆔 UID: ${user.uid}
+🔑 Token: ${idToken.substring(0, 50)}...
+
+⚠️ Lưu ý: Firebase Functions cần Blaze plan để hoạt động.
+Vui lòng upgrade project tại: 
+https://console.firebase.google.com/project/tmas-5f48e/usage/details`;
+
+      } catch (error) {
+        console.error("❌ Lỗi chi tiết:", error);
+        
+        // Xử lý các loại lỗi cụ thể
+        if (error.code === 'auth/popup-closed-by-user') {
+          out.textContent = "❌ Bạn đã đóng popup đăng nhập. Vui lòng thử lại!";
+        } else if (error.code === 'auth/popup-blocked') {
+          out.textContent = "❌ Popup bị chặn bởi trình duyệt. Vui lòng cho phép popup và thử lại!";
+        } else if (error.code === 'auth/unauthorized-domain') {
+          out.textContent = "❌ Domain chưa được ủy quyền. Lỗi cấu hình OAuth.";
+        } else if (error.code === 'auth/invalid-api-key') {
+          out.textContent = "❌ API Key không hợp lệ.";
+        } else if (error.message && error.message.includes('redirect_uri_mismatch')) {
+          out.textContent = "❌ Lỗi redirect_uri_mismatch. Cần cấu hình lại Google Cloud Console.";
+        } else {
+          out.textContent = `❌ Lỗi: ${error.code || 'unknown'}\n${error.message}`;
+        }
+      }
+    };
+  </script>
+</body>
+
+</html>
