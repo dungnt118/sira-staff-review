@@ -1,0 +1,24 @@
+{
+  "name": "staff-reviewer-data-migration",
+  "version": "1.0.0",
+  "description": "Scripts to migrate data from Excel to Google Sheets",
+  "main": "migrate-data.js",
+  "scripts": {
+    "migrate": "node migrate-data.js",
+    "test": "node test-connection.js", 
+    "preview": "node preview-excel.js",
+    "export": "node export-csv.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "googleapis": "^170.1.0",
+    "google-auth-library": "^9.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": ["google-sheets", "excel", "data-migration"],
+  "author": "Staff Reviewer System",
+  "license": "MIT"
+}
