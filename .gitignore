@@ -65,5 +65,8 @@ node_modules/
 # dotenv environment variables file
 .env
 
+# Service account credentials (sensitive)
+functions/serviceAccount.json
+
 # dataconnect generated files
 .dataconnect
