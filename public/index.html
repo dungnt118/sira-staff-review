@@ -3,41 +3,176 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>SIRA - Mini App Đánh Giá</title>
+  <title>SIRA - Staff Review App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    #login {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    
+    #login:hover {
+      background: #3367d6;
+    }
+    
+    #login:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 5px;
+      white-space: pre-line;
+      text-align: left;
+    }
+    
+    .status-loading {
+      background: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+    
+    .status-error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+    
+    .status-success {
+      background: #e8f5e8;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .loading-spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #4285f4;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 
 <body>
-  <h2>Mini App Đánh Giá</h2>
-  <button id="login">Đăng nhập Google</button>
-  <pre id="out"></pre>
+  <div class="container">
+    <h1>🎯 SIRA</h1>
+    <div class="subtitle">Staff Information & Review Application</div>
+    
+    <button id="login">
+      <span id="login-text">Đăng nhập với Google</span>
+      <span id="login-spinner" class="loading-spinner hidden"></span>
+    </button>
+    
+    <div id="status" class="hidden"></div>
+  </div>
 
+  <!-- Load config first -->
+  <script src="js/config.js"></script>
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
-    // 🔥 LẤY CONFIG Ở: Firebase Console → Project settings → General → Your apps (Web)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU",
-      authDomain: "tmas-5f48e.firebaseapp.com",
-      projectId: "tmas-5f48e",
-      storageBucket: "tmas-5f48e.firebasestorage.app",
-      messagingSenderId: "256219032535",
-      appId: "1:256219032535:web:982400f879da9b43cd3992",
-      measurementId: "G-MXJB7G7KYT"
-    };
-
-    const app = initializeApp(firebaseConfig);
+    // Use config từ file
+    const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
     const auth = getAuth(app);
 
-    const out = document.getElementById("out");
-    const btn = document.getElementById("login");
+    const loginBtn = document.getElementById("login");
+    const loginText = document.getElementById("login-text");
+    const loginSpinner = document.getElementById("login-spinner");
+    const status = document.getElementById("status");
 
-    btn.onclick = async () => {
+    // Hiển thị trạng thái
+    function showStatus(message, type = 'loading') {
+      status.className = `status-${type}`;
+      status.textContent = message;
+      status.classList.remove('hidden');
+    }
+
+    // Ẩn trạng thái
+    function hideStatus() {
+      status.classList.add('hidden');
+    }
+
+    // Cập nhật trạng thái button
+    function setButtonLoading(loading) {
+      loginBtn.disabled = loading;
+      if (loading) {
+        loginText.textContent = "Đang xử lý...";
+        loginSpinner.classList.remove('hidden');
+      } else {
+        loginText.textContent = "Đăng nhập với Google";
+        loginSpinner.classList.add('hidden');
+      }
+    }
+
+    // Tìm nhân viên theo email
+    async function lookupEmployee(email) {
+      return await window.SIRA_API.lookupEmployee(email);
+    }
+
+    // Xử lý đăng nhập
+    loginBtn.onclick = async () => {
       try {
-        out.textContent = "Đang login...";
+        setButtonLoading(true);
+        showStatus("Đang đăng nhập với Google...", 'loading');
+
         const provider = new GoogleAuthProvider();
-        
-        // Thêm scope và parameters để tránh lỗi
         provider.addScope('email');
         provider.addScope('profile');
         provider.setCustomParameters({
@@ -46,38 +181,80 @@
 
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
-        const idToken = await user.getIdToken();
 
-        out.textContent = `✅ Đăng nhập thành công!
-        
-📧 Email: ${user.email}
-👤 Tên: ${user.displayName}
-🆔 UID: ${user.uid}
-🔑 Token: ${idToken.substring(0, 50)}...
+        showStatus(`Đang kiểm tra thông tin nhân viên: ${user.email}`, 'loading');
 
-⚠️ Lưu ý: Firebase Functions cần Blaze plan để hoạt động.
-Vui lòng upgrade project tại: 
-https://console.firebase.google.com/project/tmas-5f48e/usage/details`;
+        // Tìm nhân viên trong hệ thống
+        const lookupResult = await lookupEmployee(user.email);
+
+        if (lookupResult.success) {
+          showStatus(`Chào mừng ${lookupResult.employee.name}!\nĐang chuyển hướng...`, 'success');
+          
+          // Lưu thông tin vào localStorage
+          localStorage.setItem('currentUser', JSON.stringify({
+            auth: {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL
+            },
+            employee: lookupResult.employee
+          }));
+
+          // Chuyển hướng sau 1.5 giây
+          setTimeout(() => {
+            window.location.href = 'welcome.html';
+          }, 1500);
+        } else {
+          showStatus(`Email ${user.email} không có trong hệ thống nhân viên.\nBạn không có quyền truy cập ứng dụng này.`, 'error');
+          
+          // Chuyển hướng đến trang no-access sau 2 giây
+          setTimeout(() => {
+            window.location.href = 'no-access.html';
+          }, 2000);
+        }
 
       } catch (error) {
-        console.error("❌ Lỗi chi tiết:", error);
+        console.error("Login error:", error);
         
-        // Xử lý các loại lỗi cụ thể
+        let errorMessage = "Đã có lỗi xảy ra trong quá trình đăng nhập.";
+        
         if (error.code === 'auth/popup-closed-by-user') {
-          out.textContent = "❌ Bạn đã đóng popup đăng nhập. Vui lòng thử lại!";
+          errorMessage = "Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại!";
         } else if (error.code === 'auth/popup-blocked') {
-          out.textContent = "❌ Popup bị chặn bởi trình duyệt. Vui lòng cho phép popup và thử lại!";
+          errorMessage = "Popup bị chặn bởi trình duyệt. Vui lòng cho phép popup và thử lại!";
         } else if (error.code === 'auth/unauthorized-domain') {
-          out.textContent = "❌ Domain chưa được ủy quyền. Lỗi cấu hình OAuth.";
-        } else if (error.code === 'auth/invalid-api-key') {
-          out.textContent = "❌ API Key không hợp lệ.";
-        } else if (error.message && error.message.includes('redirect_uri_mismatch')) {
-          out.textContent = "❌ Lỗi redirect_uri_mismatch. Cần cấu hình lại Google Cloud Console.";
-        } else {
-          out.textContent = `❌ Lỗi: ${error.code || 'unknown'}\n${error.message}`;
+          errorMessage = "Domain chưa được ủy quyền. Lỗi cấu hình OAuth.";
+        } else if (error.message.includes('fetch')) {
+          errorMessage = "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.";
         }
+        
+        showStatus(errorMessage, 'error');
+        setButtonLoading(false);
       }
     };
+
+    // Kiểm tra trạng thái đăng nhập khi load trang
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User đã đăng nhập, kiểm tra localStorage
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          if (userData.employee) {
+            // Đã có thông tin nhân viên, chuyển hướng
+            window.location.href = 'welcome.html';
+            return;
+          }
+        }
+        // Nếu không có thông tin nhân viên trong localStorage, cần lookup lại
+        showStatus("Đang kiểm tra thông tin đăng nhập...", 'loading');
+      } else {
+        // User chưa đăng nhập
+        hideStatus();
+        setButtonLoading(false);
+      }
+    });
   </script>
 </body>
 

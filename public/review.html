@@ -1,0 +1,853 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Đánh giá nhân viên - SIRA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .header h1 {
+      margin: 0;
+      color: #333;
+    }
+    
+    .nav-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .nav-btn {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    .nav-btn:hover {
+      background: #1976D2;
+    }
+    
+    .main-content {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .loading {
+      text-align: center;
+      color: #666;
+      padding: 40px;
+      font-style: italic;
+    }
+    
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #4CAF50;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .reviewee-info {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      border-left: 5px solid #4CAF50;
+    }
+    
+    .reviewee-info h2 {
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+    
+    .reviewee-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    .reviewee-details .label {
+      font-weight: bold;
+      color: #555;
+    }
+    
+    .reviewee-details .value {
+      color: #333;
+    }
+    
+    .assignment-info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      border-left: 4px solid #2196F3;
+    }
+    
+    .assignment-info h3 {
+      margin: 0 0 10px 0;
+      color: #1976D2;
+    }
+    
+    .form-section {
+      margin-bottom: 30px;
+    }
+    
+    .form-section h3 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .criterion-item {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+    }
+    
+    .criterion-header {
+      margin-bottom: 15px;
+    }
+    
+    .criterion-name {
+      font-weight: bold;
+      font-size: 16px;
+      color: #333;
+      margin: 0 0 5px 0;
+    }
+    
+    .criterion-description {
+      color: #666;
+      font-size: 14px;
+      margin: 0 0 5px 0;
+    }
+    
+    .criterion-weight {
+      font-size: 12px;
+      color: #999;
+      font-style: italic;
+    }
+    
+    .input-group {
+      margin-top: 15px;
+    }
+    
+    .input-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #555;
+    }
+    
+    .scale-input {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .scale-slider {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #ddd;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    .scale-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #4CAF50;
+      cursor: pointer;
+    }
+    
+    .scale-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #4CAF50;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .scale-value {
+      font-weight: bold;
+      font-size: 18px;
+      color: #4CAF50;
+      min-width: 30px;
+      text-align: center;
+    }
+    
+    .scale-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    
+    .comment-textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+    }
+    
+    .comment-textarea:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+    }
+    
+    .form-actions {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin-top: 30px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 30px;
+      margin: 0 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    
+    .btn-primary {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #45a049;
+    }
+    
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #757575;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #616161;
+    }
+    
+    .progress-info {
+      background: #fff3e0;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #ff9800;
+      margin-bottom: 20px;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: #4CAF50;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #f44336;
+      margin: 20px 0;
+    }
+    
+    .success-message {
+      background: #e8f5e8;
+      color: #2e7d32;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+      margin: 20px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+      
+      .reviewee-details {
+        grid-template-columns: 1fr;
+      }
+      
+      .scale-input {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+      
+      .btn {
+        width: 100%;
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>⭐ Đánh giá nhân viên</h1>
+    <div class="nav-buttons">
+      <a href="dashboard.html" class="nav-btn">📋 Dashboard</a>
+      <a href="welcome.html" class="nav-btn">🏠 Trang chủ</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- Loading state -->
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <div>Đang tải form đánh giá...</div>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" style="display: none;">
+      <div class="error-message">
+        <h3>⚠️ Có lỗi xảy ra</h3>
+        <p id="error-message"></p>
+        <a href="dashboard.html" class="btn btn-secondary">← Quay lại Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Main form content -->
+    <div id="form-content" style="display: none;">
+      <!-- Reviewee information -->
+      <div id="reviewee-info" class="reviewee-info">
+        <h2>👤 Thông tin nhân viên được đánh giá</h2>
+        <div class="reviewee-details">
+          <span class="label">Tên:</span>
+          <span class="value" id="reviewee-name"></span>
+          
+          <span class="label">Email:</span>
+          <span class="value" id="reviewee-email"></span>
+          
+          <span class="label">Phòng ban:</span>
+          <span class="value" id="reviewee-department"></span>
+          
+          <span class="label">Chức vụ:</span>
+          <span class="value" id="reviewee-position"></span>
+        </div>
+      </div>
+
+      <!-- Assignment info -->
+      <div class="assignment-info">
+        <h3>📝 Thông tin phân công</h3>
+        <p><strong>Kỳ đánh giá:</strong> <span id="assignment-period"></span></p>
+        <p><strong>Nhóm tiêu chí:</strong> <span id="assignment-criteria-group"></span></p>
+      </div>
+
+      <!-- Progress indicator -->
+      <div class="progress-info">
+        <p><strong>Tiến độ hoàn thành:</strong> <span id="progress-text">0/0 tiêu chí</span></p>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Review form -->
+      <form id="review-form">
+        <div class="form-section">
+          <h3>📊 Các tiêu chí đánh giá</h3>
+          <div id="criteria-container">
+            <!-- Criteria will be loaded here -->
+          </div>
+        </div>
+
+        <!-- Form actions -->
+        <div class="form-actions">
+          <button type="button" id="save-draft" class="btn btn-secondary">
+            💾 Lưu nháp
+          </button>
+          <button type="submit" id="submit-review" class="btn btn-primary">
+            ✅ Nộp đánh giá
+          </button>
+        </div>
+      </form>
+
+      <!-- Messages -->
+      <div id="message-area"></div>
+    </div>
+  </div>
+
+  <!-- Load config first -->
+  <script src="js/config.js"></script>
+  
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+    const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
+    const auth = getAuth(app);
+
+    let currentAssignment = null;
+    let criteria = [];
+    let reviewData = {};
+
+    // Kiểm tra authentication
+    function checkAuth() {
+      const savedUser = localStorage.getItem('currentUser');
+      if (!savedUser) {
+        alert('Bạn chưa đăng nhập. Đang chuyển hướng...');
+        window.location.href = 'index.html';
+        return null;
+      }
+      return JSON.parse(savedUser);
+    }
+
+    // Lấy assignment ID từ URL
+    function getAssignmentId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('assignment');
+    }
+
+    // Hiển thị lỗi
+    function showError(message) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('form-content').style.display = 'none';
+      document.getElementById('error-message').textContent = message;
+      document.getElementById('error-state').style.display = 'block';
+    }
+
+    // Hiển thị thông báo
+    function showMessage(message, type = 'success') {
+      const messageArea = document.getElementById('message-area');
+      const className = type === 'success' ? 'success-message' : 'error-message';
+      messageArea.innerHTML = `<div class="${className}">${message}</div>`;
+      
+      // Auto hide after 5 seconds
+      setTimeout(() => {
+        messageArea.innerHTML = '';
+      }, 5000);
+    }
+
+    // Load assignment và criteria
+    async function loadReviewData() {
+      const userData = checkAuth();
+      const assignmentId = getAssignmentId();
+      
+      if (!userData || !assignmentId) {
+        showError('Thông tin không hợp lệ. Vui lòng quay lại dashboard.');
+        return;
+      }
+
+      try {
+        // Lấy danh sách assignments để tìm assignment cụ thể
+        const assignmentResult = await window.SIRA_API.getAssignments(userData.auth.email);
+        
+        if (!assignmentResult.success) {
+          throw new Error(assignmentResult.message || 'Không thể tải thông tin assignment');
+        }
+
+        // Tìm assignment theo ID
+        currentAssignment = assignmentResult.assignments.find(a => a.assignment_id === assignmentId);
+        
+        if (!currentAssignment) {
+          throw new Error('Không tìm thấy assignment này hoặc bạn không có quyền truy cập');
+        }
+
+        // Kiểm tra xem đã hoàn thành chưa
+        if (currentAssignment.completed) {
+          showError('Bạn đã hoàn thành đánh giá này rồi. Không thể chỉnh sửa.');
+          return;
+        }
+
+        // Lấy criteria
+        const criteriaResult = await window.SIRA_API.getCriteria(currentAssignment.criteria_group);
+        
+        if (!criteriaResult.success) {
+          throw new Error(criteriaResult.message || 'Không thể tải tiêu chí đánh giá');
+        }
+
+        criteria = criteriaResult.criteria;
+
+        if (criteria.length === 0) {
+          throw new Error('Không có tiêu chí đánh giá nào cho nhóm này');
+        }
+
+        // Hiển thị thông tin
+        displayReviewInfo();
+        generateForm();
+
+      } catch (error) {
+        console.error('Load review data error:', error);
+        showError(`Có lỗi xảy ra: ${error.message}`);
+      }
+    }
+
+    // Hiển thị thông tin assignment và reviewee
+    function displayReviewInfo() {
+      // Assignment info
+      document.getElementById('assignment-period').textContent = currentAssignment.period;
+      document.getElementById('assignment-criteria-group').textContent = currentAssignment.criteria_group;
+
+      // Reviewee info
+      if (currentAssignment.reviewee) {
+        document.getElementById('reviewee-name').textContent = currentAssignment.reviewee.name;
+        document.getElementById('reviewee-email').textContent = currentAssignment.reviewee.email;
+        document.getElementById('reviewee-department').textContent = currentAssignment.reviewee.department;
+        document.getElementById('reviewee-position').textContent = currentAssignment.reviewee.position;
+      }
+
+      updateProgress();
+    }
+
+    // Tạo form động
+    function generateForm() {
+      const container = document.getElementById('criteria-container');
+      
+      const criteriaHTML = criteria.map((criterion, index) => {
+        const inputHTML = generateInputForCriterion(criterion);
+        
+        return `
+          <div class="criterion-item" data-criterion-id="${criterion.criteria_id}">
+            <div class="criterion-header">
+              <h4 class="criterion-name">${criterion.criteria_name}</h4>
+              <p class="criterion-description">${criterion.description}</p>
+              <span class="criterion-weight">Trọng số: ${criterion.weight}%</span>
+            </div>
+            ${inputHTML}
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = criteriaHTML;
+
+      // Thêm event listeners
+      addFormEventListeners();
+
+      // Hiển thị form
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('form-content').style.display = 'block';
+    }
+
+    // Tạo input cho từng loại tiêu chí
+    function generateInputForCriterion(criterion) {
+      switch (criterion.type) {
+        case 'scale_1_5':
+          return `
+            <div class="input-group">
+              <label class="input-label">Điểm số (1-5):</label>
+              <div class="scale-input">
+                <span>1</span>
+                <input type="range" 
+                       class="scale-slider score-input" 
+                       min="1" max="5" step="1" value="3"
+                       data-criterion-id="${criterion.criteria_id}">
+                <span>5</span>
+                <div class="scale-value">3</div>
+              </div>
+              <div class="scale-labels">
+                <span>Kém</span>
+                <span>Trung bình</span>
+                <span>Xuất sắc</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Nhận xét (tùy chọn):</label>
+              <textarea class="comment-textarea comment-input" 
+                        placeholder="Nhập nhận xét chi tiết về tiêu chí này..."
+                        data-criterion-id="${criterion.criteria_id}"></textarea>
+            </div>
+          `;
+        
+        case 'text':
+          return `
+            <div class="input-group">
+              <label class="input-label">Nhận xét:</label>
+              <textarea class="comment-textarea comment-input required" 
+                        placeholder="Nhập đánh giá chi tiết..."
+                        data-criterion-id="${criterion.criteria_id}"
+                        required></textarea>
+            </div>
+          `;
+        
+        default:
+          return `
+            <div class="input-group">
+              <label class="input-label">Giá trị:</label>
+              <input type="text" class="comment-input" 
+                     placeholder="Nhập giá trị..."
+                     data-criterion-id="${criterion.criteria_id}">
+            </div>
+          `;
+      }
+    }
+
+    // Thêm event listeners cho form
+    function addFormEventListeners() {
+      // Scale sliders
+      document.querySelectorAll('.scale-slider').forEach(slider => {
+        slider.addEventListener('input', function() {
+          const valueDisplay = this.parentElement.querySelector('.scale-value');
+          valueDisplay.textContent = this.value;
+          updateReviewData();
+          updateProgress();
+        });
+      });
+
+      // Text inputs
+      document.querySelectorAll('.comment-input').forEach(input => {
+        input.addEventListener('input', function() {
+          updateReviewData();
+          updateProgress();
+        });
+      });
+
+      // Form submission
+      document.getElementById('review-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitReview();
+      });
+
+      // Save draft
+      document.getElementById('save-draft').addEventListener('click', function() {
+        saveDraft();
+      });
+    }
+
+    // Cập nhật dữ liệu review
+    function updateReviewData() {
+      reviewData = {};
+      
+      criteria.forEach(criterion => {
+        const scoreInput = document.querySelector(`input[data-criterion-id="${criterion.criteria_id}"].score-input`);
+        const commentInput = document.querySelector(`[data-criterion-id="${criterion.criteria_id}"].comment-input`);
+        
+        reviewData[criterion.criteria_id] = {
+          criteria_id: criterion.criteria_id,
+          score: scoreInput ? parseInt(scoreInput.value) : undefined,
+          comment: commentInput ? commentInput.value.trim() : ''
+        };
+      });
+    }
+
+    // Cập nhật progress
+    function updateProgress() {
+      updateReviewData();
+      
+      let completed = 0;
+      const total = criteria.length;
+      
+      criteria.forEach(criterion => {
+        const data = reviewData[criterion.criteria_id];
+        if (criterion.type === 'scale_1_5') {
+          // Cho scale, chỉ cần có score
+          if (data && data.score) completed++;
+        } else {
+          // Cho text, cần có comment
+          if (data && data.comment) completed++;
+        }
+      });
+      
+      const percentage = total > 0 ? (completed / total) * 100 : 0;
+      
+      document.getElementById('progress-text').textContent = `${completed}/${total} tiêu chí`;
+      document.getElementById('progress-fill').style.width = `${percentage}%`;
+      
+      // Enable/disable submit button
+      const submitBtn = document.getElementById('submit-review');
+      submitBtn.disabled = completed < total;
+    }
+
+    // Lưu nháp
+    function saveDraft() {
+      updateReviewData();
+      
+      // Lưu vào localStorage
+      const draftKey = `draft_${currentAssignment.assignment_id}`;
+      localStorage.setItem(draftKey, JSON.stringify(reviewData));
+      
+      showMessage('📄 Đã lưu nháp thành công!', 'success');
+    }
+
+    // Load nháp
+    function loadDraft() {
+      const draftKey = `draft_${currentAssignment.assignment_id}`;
+      const draft = localStorage.getItem(draftKey);
+      
+      if (draft) {
+        const draftData = JSON.parse(draft);
+        
+        // Populate form với dữ liệu nháp
+        Object.keys(draftData).forEach(criteriaId => {
+          const data = draftData[criteriaId];
+          
+          const scoreInput = document.querySelector(`input[data-criterion-id="${criteriaId}"].score-input`);
+          const commentInput = document.querySelector(`[data-criterion-id="${criteriaId}"].comment-input`);
+          
+          if (scoreInput && data.score) {
+            scoreInput.value = data.score;
+            const valueDisplay = scoreInput.parentElement.querySelector('.scale-value');
+            if (valueDisplay) valueDisplay.textContent = data.score;
+          }
+          
+          if (commentInput && data.comment) {
+            commentInput.value = data.comment;
+          }
+        });
+        
+        updateProgress();
+        showMessage('📄 Đã tải nháp trước đó!', 'success');
+      }
+    }
+
+    // Submit review
+    async function submitReview() {
+      updateReviewData();
+      
+      // Validate
+      let hasErrors = false;
+      const errors = [];
+      
+      criteria.forEach(criterion => {
+        const data = reviewData[criterion.criteria_id];
+        
+        if (criterion.type === 'scale_1_5') {
+          if (!data || !data.score) {
+            hasErrors = true;
+            errors.push(`Chưa chấm điểm cho tiêu chí: ${criterion.criteria_name}`);
+          }
+        } else if (criterion.type === 'text') {
+          if (!data || !data.comment) {
+            hasErrors = true;
+            errors.push(`Chưa nhập nhận xét cho tiêu chí: ${criterion.criteria_name}`);
+          }
+        }
+      });
+      
+      if (hasErrors) {
+        showMessage('❌ ' + errors.join('<br>'), 'error');
+        return;
+      }
+
+      // Confirm submission
+      if (!confirm('Bạn có chắc muốn nộp đánh giá này? Sau khi nộp sẽ không thể chỉnh sửa.')) {
+        return;
+      }
+
+      try {
+        // Disable submit button
+        const submitBtn = document.getElementById('submit-review');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Đang nộp...';
+
+        // Prepare responses
+        const responses = Object.values(reviewData).filter(r => 
+          (r.score !== undefined && r.score !== null) || (r.comment && r.comment.trim())
+        );
+
+        // Submit to API
+        const result = await window.SIRA_API.saveResponse(currentAssignment.assignment_id, responses);
+
+        if (result.success) {
+          // Xóa draft
+          const draftKey = `draft_${currentAssignment.assignment_id}`;
+          localStorage.removeItem(draftKey);
+          
+          // Hiển thị thành công
+          showMessage(`✅ Đánh giá đã được nộp thành công! (${result.saved_count}/${result.total_count} phản hồi)`, 'success');
+          
+          // Disable form
+          document.getElementById('review-form').style.opacity = '0.5';
+          document.querySelectorAll('input, textarea, button').forEach(el => el.disabled = true);
+          
+          // Redirect sau 3 giây
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 3000);
+          
+        } else {
+          throw new Error(result.message || 'Không thể nộp đánh giá');
+        }
+
+      } catch (error) {
+        console.error('Submit error:', error);
+        showMessage(`❌ Có lỗi khi nộp đánh giá: ${error.message}`, 'error');
+        
+        // Re-enable submit button
+        const submitBtn = document.getElementById('submit-review');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '✅ Nộp đánh giá';
+      }
+    }
+
+    // Khởi tạo trang
+    document.addEventListener('DOMContentLoaded', function() {
+      loadReviewData().then(() => {
+        // Load draft sau khi form đã được tạo
+        setTimeout(loadDraft, 100);
+      });
+    });
+  </script>
+</body>
+
+</html>

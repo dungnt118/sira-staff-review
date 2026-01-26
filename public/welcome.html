@@ -1,0 +1,336 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Chào mừng - SIRA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .header h1 {
+      margin: 0;
+      color: #333;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #ddd;
+    }
+    
+    .user-details h3 {
+      margin: 0;
+      color: #333;
+    }
+    
+    .user-details p {
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .logout-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .logout-btn:hover {
+      background: #d32f2f;
+    }
+    
+    .main-content {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .welcome-message {
+      margin-bottom: 30px;
+    }
+    
+    .welcome-message h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .employee-card {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      border-left: 5px solid #4CAF50;
+    }
+    
+    .employee-card h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    
+    .employee-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      text-align: left;
+      margin-top: 15px;
+    }
+    
+    .employee-details .label {
+      font-weight: bold;
+      color: #555;
+    }
+    
+    .employee-details .value {
+      color: #333;
+    }
+    
+    .action-buttons {
+      margin-top: 30px;
+    }
+    
+    .primary-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 0 10px;
+      transition: background 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .primary-btn:hover {
+      background: #45a049;
+    }
+    
+    .secondary-btn {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 0 10px;
+      transition: background 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .secondary-btn:hover {
+      background: #1976D2;
+    }
+    
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+    
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+      
+      .employee-details {
+        grid-template-columns: 1fr;
+      }
+      
+      .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+      
+      .primary-btn, .secondary-btn {
+        width: 100%;
+        max-width: 300px;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🎯 SIRA - Staff Review</h1>
+    <div class="user-info">
+      <img id="user-avatar" class="user-avatar" src="" alt="Avatar" style="display: none;">
+      <div class="user-details">
+        <h3 id="user-name"></h3>
+        <p id="user-email"></p>
+      </div>
+      <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="welcome-message">
+      <h2>Chào mừng bạn đến với SIRA!</h2>
+      <p>Hệ thống đánh giá và quản lý thông tin nhân viên</p>
+    </div>
+
+    <div id="employee-info" class="employee-card">
+      <h3>Thông tin nhân viên của bạn</h3>
+      <div class="employee-details">
+        <span class="label">Mã nhân viên:</span>
+        <span class="value" id="employee-id"></span>
+        
+        <span class="label">Họ tên:</span>
+        <span class="value" id="employee-name"></span>
+        
+        <span class="label">Email:</span>
+        <span class="value" id="employee-email"></span>
+        
+        <span class="label">Phòng ban:</span>
+        <span class="value" id="employee-department"></span>
+        
+        <span class="label">Chức vụ:</span>
+        <span class="value" id="employee-position"></span>
+        
+        <span class="label">Trạng thái:</span>
+        <span class="value" id="employee-status"></span>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <a href="dashboard.html" class="primary-btn">
+        📋 Xem nhiệm vụ đánh giá
+      </a>
+      <button class="secondary-btn" onclick="refreshData()">
+        🔄 Làm mới dữ liệu
+      </button>
+    </div>
+  </div>
+
+  <!-- Load config first -->
+  <script src="js/config.js"></script>
+  
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+    const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
+    const auth = getAuth(app);
+
+    // Kiểm tra xem user đã đăng nhập chưa
+    function checkAuth() {
+      const savedUser = localStorage.getItem('currentUser');
+      if (!savedUser) {
+        alert('Bạn chưa đăng nhập. Đang chuyển hướng...');
+        window.location.href = 'index.html';
+        return null;
+      }
+      return JSON.parse(savedUser);
+    }
+
+    // Hiển thị thông tin user
+    function displayUserInfo(userData) {
+      // Auth info
+      document.getElementById('user-name').textContent = userData.auth.displayName || userData.employee.name;
+      document.getElementById('user-email').textContent = userData.auth.email;
+      
+      const avatar = document.getElementById('user-avatar');
+      if (userData.auth.photoURL) {
+        avatar.src = userData.auth.photoURL;
+        avatar.style.display = 'block';
+      }
+
+      // Employee info
+      document.getElementById('employee-id').textContent = userData.employee.employee_id;
+      document.getElementById('employee-name').textContent = userData.employee.name;
+      document.getElementById('employee-email').textContent = userData.employee.email;
+      document.getElementById('employee-department').textContent = userData.employee.department;
+      document.getElementById('employee-position').textContent = userData.employee.position;
+      document.getElementById('employee-status').textContent = userData.employee.status;
+    }
+
+    // Đăng xuất
+    window.logout = async function() {
+      if (confirm('Bạn có chắc muốn đăng xuất?')) {
+        try {
+          await signOut(auth);
+          localStorage.removeItem('currentUser');
+          window.location.href = 'index.html';
+        } catch (error) {
+          console.error('Logout error:', error);
+          alert('Có lỗi khi đăng xuất: ' + error.message);
+        }
+      }
+    };
+
+    // Làm mới dữ liệu
+    window.refreshData = async function() {
+      const userData = checkAuth();
+      if (!userData) return;
+
+      try {
+        const result = await window.SIRA_API.lookupEmployee(userData.auth.email);
+        
+        if (result.success) {
+          // Cập nhật localStorage
+          userData.employee = result.employee;
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+          
+          // Cập nhật hiển thị
+          displayUserInfo(userData);
+          
+          alert('Dữ liệu đã được làm mới!');
+        } else {
+          alert('Không thể làm mới dữ liệu: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Refresh error:', error);
+        alert('Có lỗi khi làm mới dữ liệu: ' + error.message);
+      }
+    };
+
+    // Khởi tạo trang
+    document.addEventListener('DOMContentLoaded', function() {
+      const userData = checkAuth();
+      if (userData) {
+        displayUserInfo(userData);
+      }
+    });
+  </script>
+</body>
+
+</html>

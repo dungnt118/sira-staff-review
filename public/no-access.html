@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Không có quyền truy cập - SIRA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+    
+    .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    
+    h1 {
+      color: #d32f2f;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+    
+    .message {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    
+    .user-info {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #ff9800;
+    }
+    
+    .user-info strong {
+      color: #333;
+    }
+    
+    .suggestions {
+      background: #e3f2fd;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #2196F3;
+      text-align: left;
+    }
+    
+    .suggestions h3 {
+      margin-top: 0;
+      color: #1976D2;
+    }
+    
+    .suggestions ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    
+    .suggestions li {
+      margin: 8px 0;
+      color: #333;
+    }
+    
+    .actions {
+      margin-top: 30px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      margin: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .btn-primary {
+      background: #2196F3;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #1976D2;
+    }
+    
+    .btn-secondary {
+      background: #757575;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #616161;
+    }
+    
+    .contact-info {
+      margin-top: 30px;
+      padding: 15px;
+      background: #fff3e0;
+      border-radius: 8px;
+      border-left: 4px solid #ff9800;
+    }
+    
+    .contact-info h4 {
+      margin-top: 0;
+      color: #f57c00;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+      }
+      
+      .btn {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="icon">🚫</div>
+    
+    <h1>Không có quyền truy cập</h1>
+    
+    <div class="message">
+      Rất tiếc, tài khoản của bạn không có trong hệ thống nhân viên của công ty. 
+      Bạn không thể truy cập vào ứng dụng đánh giá này.
+    </div>
+
+    <div class="user-info" id="user-info">
+      <strong>Email đã đăng nhập:</strong> <span id="user-email">Đang tải...</span>
+    </div>
+
+    <div class="suggestions">
+      <h3>💡 Khuyến nghị:</h3>
+      <ul>
+        <li>Kiểm tra xem bạn có đang sử dụng đúng email công ty không</li>
+        <li>Liên hệ với bộ phận HR để cập nhật thông tin nhân viên</li>
+        <li>Đảm bảo tài khoản Google của bạn được liên kết với email công ty</li>
+        <li>Nếu bạn là nhân viên mới, có thể thông tin chưa được cập nhật vào hệ thống</li>
+      </ul>
+    </div>
+
+    <div class="contact-info">
+      <h4>📞 Liên hệ hỗ trợ</h4>
+      <p>
+        <strong>Bộ phận HR:</strong> hr@company.com<br>
+        <strong>IT Support:</strong> it@company.com<br>
+        <strong>Hotline:</strong> (84) 123-456-789
+      </p>
+    </div>
+
+    <div class="actions">
+      <a href="index.html" class="btn btn-primary">
+        🔄 Đăng nhập lại
+      </a>
+      <button class="btn btn-secondary" onclick="logout()">
+        🚪 Đăng xuất
+      </button>
+    </div>
+  </div>
+
+  <!-- Load config first -->
+  <script src="js/config.js"></script>
+  
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+    const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
+    const auth = getAuth(app);
+
+    // Hiển thị email của user
+    function displayUserEmail(email) {
+      document.getElementById('user-email').textContent = email || 'Không xác định';
+    }
+
+    // Đăng xuất
+    window.logout = async function() {
+      try {
+        await signOut(auth);
+        localStorage.removeItem('currentUser');
+        window.location.href = 'index.html';
+      } catch (error) {
+        console.error('Logout error:', error);
+        alert('Có lỗi khi đăng xuất: ' + error.message);
+      }
+    };
+
+    // Lắng nghe trạng thái authentication
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        displayUserEmail(user.email);
+      } else {
+        // Nếu không có user, chuyển về trang chủ
+        window.location.href = 'index.html';
+      }
+    });
+
+    // Kiểm tra localStorage để hiển thị thông tin
+    document.addEventListener('DOMContentLoaded', function() {
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        displayUserEmail(userData.auth?.email);
+      }
+    });
+  </script>
+</body>
+
+</html>
