@@ -1,4 +1,3 @@
-import { GoogleAuth } from 'google-auth-library';
 import { sheets_v4, google } from 'googleapis';
 
 // Interface cho dữ liệu từ các sheets
@@ -47,13 +46,25 @@ export class SheetsClient {
   private spreadsheetId: string;
 
   constructor() {
-    const auth = new GoogleAuth({
-      keyFile: './serviceAccount.json',
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
-    });
-
-    this.sheets = google.sheets({ version: 'v4', auth: auth as any });
-    this.spreadsheetId = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
+    try {
+      // FINAL APPROACH: Make sheets public and use simple API key
+      const apiKey = 'AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU';
+      
+      // Use API Key approach
+      this.sheets = google.sheets({ 
+        version: 'v4', 
+        auth: apiKey 
+      });
+      console.log('SheetsClient: Using API Key authentication:', apiKey.substring(0, 12) + '...');
+      
+      // Important: Google Sheets document MUST be public (Anyone with the link can view)
+      // Otherwise API key won't work
+      this.spreadsheetId = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
+      
+    } catch (error) {
+      console.error('SheetsClient: Error initializing:', error);
+      throw error;
+    }
   }
 
   /**
@@ -61,58 +72,65 @@ export class SheetsClient {
    */
   async getEmployeeByEmail(email: string): Promise<Employee | null> {
     try {
-      // Temporary mock data để test - sẽ replace bằng thật sau
-      if (email === "admin@company.com" || email.includes("test")) {
-        return {
-          employee_id: "EMP001",
-          name: "Test User",
-          email: email,
-          department: "IT",
-          position: "Developer", 
-          status: "Active"
-        };
-      }
-
+      console.log('SheetsClient: Attempting to get employee by email:', email);
+      console.log('SheetsClient: Using spreadsheetId:', this.spreadsheetId);
+      
+      // Test authentication first
+      console.log('SheetsClient: Testing authentication...');
+      await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+      console.log('SheetsClient: Authentication successful');
+      
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'EMPLOYEES!A:F',
       });
 
+      console.log('SheetsClient: API Response received, values count:', response.data.values?.length);
+      
       const values = response.data.values;
       if (!values) return null;
+
+      // Log danh sách tất cả employees để debug
+      console.log('SheetsClient: === DANH SÁCH TẤT CẢ EMPLOYEES ===');
+      console.log('SheetsClient: Header row:', values[0]);
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        if (row.length >= 3) {
+          console.log(`SheetsClient: Row ${i}: ID="${row[0]}" | Name="${row[1]}" | Email="${row[2]}" | Dept="${row[3] || 'N/A'}" | Position="${row[4] || 'N/A'}"`);
+        } else if (row.length > 0) {
+          console.log(`SheetsClient: Row ${i}: Incomplete data:`, row);
+        }
+      }
+      console.log('SheetsClient: === END EMPLOYEE LIST ===');
 
       // Bỏ qua header row (index 0)
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[2] === email) { // Column C = email
+        // CHÍNH XÁC: Email ở column E (index 4), không phải column C (index 2)
+        if (row[4] === email) { // Column E = email (dựa trên logs thực tế)
+          console.log('SheetsClient: Found employee:', { employee_id: row[0], name: row[1], email: row[4] });
           return {
             employee_id: row[0] || '',
             name: row[1] || '',
-            email: row[2] || '',
-            department: row[3] || '',
-            position: row[4] || '',
-            status: row[5] || ''
+            email: row[4] || '',        // Column E = email
+            department: row[2] || '',   // Column C = department  
+            position: row[3] || '',     // Column D = position
+            status: row[5] || ''        // Column F = status (nếu có)
           };
         }
       }
 
+      console.log('SheetsClient: No employee found with email:', email);
       return null;
-    } catch (error) {
-      console.error('Error getting employee by email:', error);
-      
-      // Return mock data để test nếu Google Sheets API fail
-      if (email.includes("test") || email.includes("admin")) {
-        console.log('Falling back to mock data for email:', email);
-        return {
-          employee_id: "EMP001",
-          name: "Mock User",
-          email: email,
-          department: "IT",
-          position: "Developer",
-          status: "Active"
-        };
+    } catch (error: any) {
+      console.error('SheetsClient: Error getting employee by email:', error);
+      console.error('SheetsClient: Error type:', error.constructor?.name);
+      if (error.response) {
+        console.error('SheetsClient: Error response status:', error.response.status);
+        console.error('SheetsClient: Error response data:', JSON.stringify(error.response.data, null, 2));
       }
-      
       throw error;
     }
   }
@@ -122,28 +140,6 @@ export class SheetsClient {
    */
   async getAssignmentsByEmail(reviewerEmail: string): Promise<Assignment[]> {
     try {
-      // Mock data để test
-      if (reviewerEmail.includes("test") || reviewerEmail.includes("admin")) {
-        return [
-          {
-            assignment_id: "ASG001",
-            reviewer_email: reviewerEmail,
-            reviewee_employee_id: "EMP002",
-            period: "2024-Q1",
-            criteria_group: "TECH_STAFF",
-            status: "Active"
-          },
-          {
-            assignment_id: "ASG002", 
-            reviewer_email: reviewerEmail,
-            reviewee_employee_id: "EMP003",
-            period: "2024-Q1",
-            criteria_group: "TECH_STAFF",
-            status: "Active"
-          }
-        ];
-      }
-
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'ASSIGNMENTS!A:F',
@@ -172,21 +168,6 @@ export class SheetsClient {
       return assignments;
     } catch (error) {
       console.error('Error getting assignments by email:', error);
-      
-      // Fallback mock data
-      if (reviewerEmail.includes("test") || reviewerEmail.includes("admin")) {
-        return [
-          {
-            assignment_id: "ASG001",
-            reviewer_email: reviewerEmail,
-            reviewee_employee_id: "EMP002",
-            period: "2024-Q1",
-            criteria_group: "TECH_STAFF",
-            status: "Active"
-          }
-        ];
-      }
-      
       throw error;
     }
   }
@@ -196,44 +177,6 @@ export class SheetsClient {
    */
   async getCriteriaByGroup(criteriaGroup: string): Promise<Criterion[]> {
     try {
-      // Mock data để test
-      if (criteriaGroup === "TECH_STAFF") {
-        return [
-          {
-            criteria_id: "CR001",
-            criteria_group: "TECH_STAFF",
-            criteria_name: "Kỹ năng lập trình",
-            description: "Đánh giá kỹ năng viết code và giải quyết vấn đề",
-            weight: 30,
-            type: "scale_1_5"
-          },
-          {
-            criteria_id: "CR002",
-            criteria_group: "TECH_STAFF",
-            criteria_name: "Teamwork",
-            description: "Khả năng làm việc nhóm và hỗ trợ đồng nghiệp",
-            weight: 25,
-            type: "scale_1_5"
-          },
-          {
-            criteria_id: "CR003",
-            criteria_group: "TECH_STAFF",
-            criteria_name: "Communication",
-            description: "Khả năng giao tiếp và trình bày ý tưởng",
-            weight: 20,
-            type: "scale_1_5"
-          },
-          {
-            criteria_id: "CR004",
-            criteria_group: "TECH_STAFF",
-            criteria_name: "Nhận xét chung",
-            description: "Nhận xét tổng quát về nhân viên",
-            weight: 25,
-            type: "text"
-          }
-        ];
-      }
-
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'CRITERIA!A:F',
@@ -262,26 +205,7 @@ export class SheetsClient {
       return criteria;
     } catch (error) {
       console.error('Error getting criteria by group:', error);
-      
-      // Fallback mock data
-      return [
-        {
-          criteria_id: "CR001",
-          criteria_group: criteriaGroup,
-          criteria_name: "Kỹ năng chuyên môn",
-          description: "Đánh giá kỹ năng làm việc",
-          weight: 50,
-          type: "scale_1_5"
-        },
-        {
-          criteria_id: "CR002",
-          criteria_group: criteriaGroup,
-          criteria_name: "Nhận xét chung",
-          description: "Nhận xét tổng quát",
-          weight: 50,
-          type: "text"
-        }
-      ];
+      throw error;
     }
   }
 
@@ -323,29 +247,6 @@ export class SheetsClient {
    */
   async getEmployeeById(employeeId: string): Promise<Employee | null> {
     try {
-      // Mock data để test
-      if (employeeId === "EMP002") {
-        return {
-          employee_id: "EMP002",
-          name: "John Smith",
-          email: "john@company.com",
-          department: "IT",
-          position: "Senior Developer",
-          status: "Active"
-        };
-      }
-      
-      if (employeeId === "EMP003") {
-        return {
-          employee_id: "EMP003",
-          name: "Jane Doe",
-          email: "jane@company.com", 
-          department: "IT",
-          position: "UI/UX Designer",
-          status: "Active"
-        };
-      }
-
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'EMPLOYEES!A:F',
@@ -372,19 +273,6 @@ export class SheetsClient {
       return null;
     } catch (error) {
       console.error('Error getting employee by ID:', error);
-      
-      // Fallback mock
-      if (employeeId.startsWith("EMP")) {
-        return {
-          employee_id: employeeId,
-          name: "Mock Employee " + employeeId,
-          email: "mock@company.com",
-          department: "IT",
-          position: "Developer",
-          status: "Active"
-        };
-      }
-      
       throw error;
     }
   }

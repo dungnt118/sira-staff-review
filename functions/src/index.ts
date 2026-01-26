@@ -5,6 +5,45 @@ import { SheetsClient, ResponseData } from "./sheets/sheets-client";
 setGlobalOptions({ maxInstances: 10 });
 
 /**
+ * Test function để debug authentication
+ */
+export const testAuth = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    console.log('testAuth: Testing service account authentication...');
+    const sheetsClient = new SheetsClient();
+    
+    console.log('testAuth: SheetsClient created successfully');
+    
+    // Test thử getEmployeeByEmail để xem danh sách employees
+    console.log('testAuth: Testing getEmployeeByEmail to show employee list...');
+    const result = await sheetsClient.getEmployeeByEmail('dungnt118@gmail.com');
+    console.log('testAuth: Found employee result:', result);
+    
+    res.json({
+      success: true,
+      message: "Service account authentication working",
+      spreadsheetId: "1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko"
+    });
+    
+  } catch (error: any) {
+    console.error('testAuth: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: error.toString()
+    });
+  }
+});
+
+/**
  * API để tìm nhân viên theo email
  * POST /employee-lookup
  * Body: { email: string }
@@ -25,31 +64,61 @@ export const employeeLookup = onRequest(async (req, res) => {
     return;
   }
 
+  const debugInfo: any = {
+    step: 'starting',
+    timestamp: new Date().toISOString(),
+    logs: []
+  };
+
   try {
     const { email } = req.body;
+    debugInfo.logs.push(`Received email: ${email}`);
 
     if (!email) {
-      res.status(400).json({ error: "Email is required" });
+      debugInfo.error = 'No email provided';
+      res.status(400).json(debugInfo);
       return;
     }
 
+    debugInfo.logs.push('Creating SheetsClient...');
     const sheetsClient = new SheetsClient();
+    debugInfo.logs.push('SheetsClient created successfully');
+    
+    debugInfo.logs.push('Calling getEmployeeByEmail...');
     const employee = await sheetsClient.getEmployeeByEmail(email);
+    debugInfo.logs.push('Got employee result');
+    debugInfo.employee = employee;
 
     if (employee) {
       res.json({
         success: true,
-        employee
+        employee,
+        debug: debugInfo
       });
     } else {
       res.json({
         success: false,
-        message: "Employee not found"
+        message: "Employee not found",
+        debug: debugInfo
       });
     }
   } catch (error: any) {
-    console.error("Error in employeeLookup:", error);
-    res.status(500).json({ error: error.message });
+    debugInfo.error = {
+      message: error.message,
+      stack: error.stack,
+      name: error.constructor?.name
+    };
+    
+    if (error.response) {
+      debugInfo.error.responseStatus = error.response.status;
+      debugInfo.error.responseData = error.response.data;
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      debug: debugInfo
+    });
   }
 });
 
