@@ -7,7 +7,10 @@
     "migrate": "node migrate-data.js",
     "test": "node test-connection.js", 
     "preview": "node preview-excel.js",
-    "export": "node export-csv.js"
+    "export": "node export-csv.js",
+    "real-assignments": "node generate-real-assignments.js",
+    "optimized": "node generate-optimized-assignments.js",
+    "criteria": "node generate-improved-criteria.js"
   },
   "dependencies": {
     "xlsx": "^0.18.5",
