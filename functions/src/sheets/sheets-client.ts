@@ -351,17 +351,37 @@ export class SheetsClient {
       const values = response.data.values;
       if (!values || values.length < 2) return [];
 
+      // Xác định cột theo header row thay vì fixed index
+      const header = values[0];
+      const col = (name: string) => header.indexOf(name);
+      const idx = {
+        assignmentId: col('assignment_id'),
+        reviewerEmail: col('reviewer_email'),
+        revieweeEmployeeId: col('reviewee_employee_id'),
+        targetType: col('target_type'),
+        status: col('status'),
+        period: col('period') // nếu có
+      };
+
+      const validTargets = ['EMPLOYEE', 'MANAGER'];
       const assignments = [];
       // Bỏ qua header row (index 0)
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[1] === reviewerEmail) { // Column B = reviewer_email
+        const reviewerCol = idx.reviewerEmail;
+        if (reviewerCol >= 0 && row[reviewerCol] === reviewerEmail) {
+          const candidateTarget = idx.targetType >= 0 ? row[idx.targetType] : '';
+          const candidatePeriod = idx.period >= 0 ? row[idx.period] : '';
+          const targetType = validTargets.includes(candidateTarget) ? candidateTarget : validTargets.includes(candidatePeriod) ? candidatePeriod : '';
+
+          const statusVal = idx.status >= 0 ? row[idx.status] : '';
+
           assignments.push({
-            assignment_id: row[0],
-            reviewer_email: row[1],
-            reviewee_employee_id: row[2],
-            target_type: row[3],
-            status: row[4] || 'PENDING'
+            assignment_id: idx.assignmentId >= 0 ? row[idx.assignmentId] : row[0],
+            reviewer_email: row[reviewerCol],
+            reviewee_employee_id: idx.revieweeEmployeeId >= 0 ? row[idx.revieweeEmployeeId] : row[2],
+            target_type: targetType,
+            status: statusVal || 'PENDING'
           });
         }
       }

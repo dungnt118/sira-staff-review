@@ -1,0 +1,240 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SIRA - Đánh giá</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .badge { padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 12px; }
+    .badge.emp { background: #e3f2fd; color: #1565c0; }
+    .badge.mgr { background: #fff3e0; color: #ef6c00; }
+    .info { margin: 8px 0; color: #444; }
+    .criteria-group { border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .criteria-group h3 { margin: 0 0 8px 0; color: #333; }
+    .criterion { padding: 10px 0; border-bottom: 1px solid #f1f3f5; display: flex; align-items: center; gap: 12px; }
+    .criterion:last-child { border-bottom: none; }
+    .criterion label { flex: 1; color: #333; font-weight: 600; }
+    .criterion select { width: 80px; padding: 6px; }
+    textarea { width: 100%; min-height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .actions { display: flex; gap: 10px; margin-top: 20px; }
+    button { cursor: pointer; border: none; border-radius: 8px; padding: 12px 16px; font-size: 14px; font-weight: 600; }
+    .btn-primary { background: #667eea; color: #fff; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .loading { text-align: center; padding: 30px; color: #666; }
+    .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    .success { background: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h2 style="margin:0">Đánh giá</h2>
+        <div id="revieweeInfo" class="info"></div>
+      </div>
+      <div>
+        <span id="targetBadge" class="badge"></span>
+      </div>
+    </div>
+
+    <div id="statusBox" class="error" style="display:none"></div>
+    <div id="loading" class="loading">Đang tải tiêu chí...</div>
+    <form id="form" style="display:none">
+      <div id="criteriaContainer"></div>
+
+      <div style="margin-top:16px;">
+        <label for="comments" style="font-weight:600; color:#333;">Nhận xét bổ sung (tuỳ chọn)</label>
+        <textarea id="comments" placeholder="Nhận xét..." ></textarea>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="history.back()">Quay lại</button>
+        <button type="submit" class="btn-primary">Lưu đánh giá</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script type="module">
+    const statusBox = document.getElementById('statusBox');
+    const loading = document.getElementById('loading');
+    const formEl = document.getElementById('form');
+    const criteriaContainer = document.getElementById('criteriaContainer');
+    const revieweeInfo = document.getElementById('revieweeInfo');
+    const targetBadge = document.getElementById('targetBadge');
+
+    function showError(msg) {
+      statusBox.textContent = msg;
+      statusBox.className = 'error';
+      statusBox.style.display = 'block';
+    }
+    function showSuccess(msg) {
+      statusBox.textContent = msg;
+      statusBox.className = 'success';
+      statusBox.style.display = 'block';
+    }
+
+    function getAssignment() {
+      const raw = sessionStorage.getItem('currentAssignment');
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    function renderAssignmentInfo(assignment) {
+      const r = assignment.reviewee;
+      revieweeInfo.textContent = `${r.name} • ${r.department} • ${r.position} • ${r.email}`;
+      if (assignment.target_type === 'EMPLOYEE') {
+        targetBadge.textContent = 'Nhân viên';
+        targetBadge.className = 'badge emp';
+      } else {
+        targetBadge.textContent = 'Quản lý';
+        targetBadge.className = 'badge mgr';
+      }
+    }
+
+    function renderCriteria(criteria, targetType) {
+      criteriaContainer.innerHTML = '';
+      if (targetType === 'EMPLOYEE') {
+        criteria.forEach(cat => {
+          const group = document.createElement('div');
+          group.className = 'criteria-group';
+          group.innerHTML = `<h3>${cat.title || cat.name || cat.criteria_name || cat.criteria_id}</h3>`;
+          (cat.sub_criteria || []).forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'criterion';
+            row.innerHTML = `
+              <label>${item.title || item.name || item.criteria_name || item.criteria_id}</label>
+              <select data-criteria-id="${item.criteria_id}">
+                <option value="">Chọn</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            `;
+            group.appendChild(row);
+          });
+          criteriaContainer.appendChild(group);
+        });
+      } else {
+        const group = document.createElement('div');
+        group.className = 'criteria-group';
+        group.innerHTML = '<h3>Tiêu chí</h3>';
+        criteria.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'criterion';
+          row.innerHTML = `
+            <label>${item.title || item.name || item.criteria_name || item.criteria_id}</label>
+            <select data-criteria-id="${item.criteria_id}">
+              <option value="">Chọn</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          `;
+          group.appendChild(row);
+        });
+        criteriaContainer.appendChild(group);
+      }
+    }
+
+    async function loadCriteria(assignment) {
+      loading.style.display = 'block';
+      formEl.style.display = 'none';
+      statusBox.style.display = 'none';
+      try {
+        const data = await window.SIRA_API.getCriteria(assignment.target_type);
+        if (!data.success) {
+          showError(data.error || 'Không thể tải tiêu chí');
+          return;
+        }
+        renderCriteria(data.criteria, assignment.target_type);
+        loading.style.display = 'none';
+        formEl.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        showError('Lỗi tải tiêu chí: ' + err.message);
+      }
+    }
+
+    function collectScores() {
+      const selects = criteriaContainer.querySelectorAll('select[data-criteria-id]');
+      const scores = [];
+      for (const sel of selects) {
+        const val = sel.value;
+        const id = sel.getAttribute('data-criteria-id');
+        if (!val) {
+          sel.focus();
+          throw new Error('Vui lòng chọn điểm cho tất cả tiêu chí.');
+        }
+        scores.push({ criteria_id: id, score: Number(val) });
+      }
+      return scores;
+    }
+
+    async function submitEvaluation(evt) {
+      evt.preventDefault();
+      statusBox.style.display = 'none';
+      const assignment = getAssignment();
+      if (!assignment) {
+        showError('Không tìm thấy assignment.');
+        return;
+      }
+      try {
+        const criteria_scores = collectScores();
+        const comments = (document.getElementById('comments').value || '').trim();
+        const result = await window.SIRA_API.saveEvaluation(assignment.assignment_id, criteria_scores, comments);
+        if (!result.success) {
+          showError(result.error || 'Lưu đánh giá thất bại');
+          return;
+        }
+        showSuccess('Đã lưu đánh giá thành công.');
+        setTimeout(() => { window.location.href = 'welcome.html'; }, 800);
+      } catch (err) {
+        showError(err.message || 'Có lỗi xảy ra');
+      }
+    }
+
+    document.getElementById('form').addEventListener('submit', submitEvaluation);
+
+    // Khởi tạo trang
+    (function init() {
+      const assignment = getAssignment();
+      if (!assignment) {
+        showError('Không có assignment trong phiên. Quay lại danh sách.');
+        setTimeout(() => { window.location.href = 'welcome.html'; }, 800);
+        return;
+      }
+      renderAssignmentInfo(assignment);
+      loadCriteria(assignment);
+    })();
+  </script>
+</body>
+</html>
