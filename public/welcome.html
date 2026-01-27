@@ -365,8 +365,13 @@
         return;
       }
 
-      // Lưu assignment vào session
-      sessionStorage.setItem('currentAssignment', JSON.stringify(assignment));
+      // Lưu assignment vào session (email-based model)
+      sessionStorage.setItem('currentAssignment', JSON.stringify({
+        reviewer_email: assignment.reviewer_email,
+        reviewee_email: assignment.reviewee_email,
+        target_type: assignment.target_type,
+        reviewee: assignment.reviewee
+      }));
       
       // Chuyển đến trang đánh giá
       window.location.href = 'evaluation.html';

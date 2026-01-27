@@ -91,7 +91,7 @@ export const login = onRequest(async (req, res) => {
 });
 
 /**
- * API lấy danh sách cần đánh giá cho reviewer
+ * API lấy danh sách cần đánh giá cho reviewer (email-based model)
  * GET /my-assignments?reviewer_email=xxx
  */
 export const getMyAssignments = onRequest(async (req, res) => {
@@ -113,19 +113,20 @@ export const getMyAssignments = onRequest(async (req, res) => {
     const sheetsClient = new SheetsClient();
     const assignments = await sheetsClient.getAssignmentsByReviewer(reviewerEmail);
     
-    // Lấy thông tin chi tiết của từng người được đánh giá
+    // Lấy thông tin chi tiết của từng người được đánh giá (bắt buộc dùng email)
     const detailedAssignments = [];
     for (const assignment of assignments) {
-      const reviewee = await sheetsClient.getEmployeeById(assignment.reviewee_employee_id);
+      if (!assignment.reviewee_email) continue;
+      const reviewee = await sheetsClient.getEmployeeByEmail(assignment.reviewee_email);
       if (reviewee) {
         detailedAssignments.push({
-          assignment_id: assignment.assignment_id,
+          reviewer_email: assignment.reviewer_email,
+          reviewee_email: assignment.reviewee_email,
           reviewee: {
-            employee_id: reviewee.employee_id,
+            email: assignment.reviewee_email,
             name: reviewee.name,
             department: reviewee.department,
-            position: reviewee.position,
-            email: reviewee.email
+            position: reviewee.position
           },
           target_type: assignment.target_type,
           status: assignment.status
@@ -203,9 +204,9 @@ export const getCriteriaAPI = onRequest(async (req, res) => {
 });
 
 /**
- * API lưu kết quả đánh giá
+ * API lưu kết quả đánh giá (email-based model)
  * POST /evaluation
- * Body: { assignment_id, criteria_scores: [{ criteria_id, score }], comments? }
+ * Body: { reviewer_email, reviewee_email, target_type, criteria_scores: [{ criteria_id, score }], comments? }
  */
 export const saveEvaluation = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -222,26 +223,28 @@ export const saveEvaluation = onRequest(async (req, res) => {
   }
 
   try {
-    const { assignment_id, criteria_scores, comments } = req.body;
+    const { reviewer_email, reviewee_email, target_type, criteria_scores, comments } = req.body;
     
-    if (!assignment_id || !criteria_scores || !Array.isArray(criteria_scores)) {
+    if (!reviewer_email || !reviewee_email || !target_type || !criteria_scores || !Array.isArray(criteria_scores)) {
       res.status(400).json({ 
         success: false, 
-        error: "assignment_id and criteria_scores array are required" 
+        error: "reviewer_email, reviewee_email, target_type, and criteria_scores array are required" 
       });
       return;
     }
 
     const sheetsClient = new SheetsClient();
     const evaluationId = await sheetsClient.saveEvaluation({
-      assignment_id,
+      reviewer_email,
+      reviewee_email,
+      target_type,
       criteria_scores,
       comments: comments || '',
       evaluation_date: new Date().toISOString().split('T')[0]
     });
 
     // Cập nhật status assignment thành COMPLETED
-    await sheetsClient.updateAssignmentStatus(assignment_id, 'COMPLETED');
+    await sheetsClient.updateAssignmentStatus(reviewer_email, reviewee_email, target_type, 'COMPLETED');
 
     res.json({
       success: true,

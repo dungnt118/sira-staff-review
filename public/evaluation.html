@@ -232,10 +232,20 @@
         showError('Không tìm thấy assignment.');
         return;
       }
+      if (!assignment.reviewer_email || !assignment.reviewee_email || !assignment.target_type) {
+        showError('Thông tin email hoặc loại đánh giá không đầy đủ.');
+        return;
+      }
       try {
         const criteria_scores = collectScores();
         const comments = (document.getElementById('comments').value || '').trim();
-        const result = await window.SIRA_API.saveEvaluation(assignment.assignment_id, criteria_scores, comments);
+        const result = await window.SIRA_API.saveEvaluation(
+          assignment.reviewer_email,
+          assignment.reviewee_email,
+          assignment.target_type,
+          criteria_scores,
+          comments
+        );
         if (!result.success) {
           showError(result.error || 'Lưu đánh giá thất bại');
           return;

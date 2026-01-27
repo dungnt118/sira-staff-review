@@ -168,7 +168,7 @@ export class SheetsClient {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'ASSIGNMENTS!A:F',
+        range: 'ASSIGNMENTS!A:K', // quét rộng 10 cột để không bị thiếu header
       });
 
       const values = response.data.values;
@@ -340,19 +340,19 @@ export class SheetsClient {
   }
 
   /**
-   * Lấy danh sách assignments theo reviewer email
+   * Lấy danh sách assignments theo reviewer email (email-based model)
    */
   async getAssignmentsByReviewer(reviewerEmail: string): Promise<any[]> {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'ASSIGNMENTS!A:F',
+        range: 'ASSIGNMENTS!A:K',
       });
 
       const values = response.data.values;
       if (!values || values.length < 2) return [];
 
-      // Xác định cột theo header row thay vì fixed index
+      // Xác định cột theo header row
       const header = values[0];
       const col = (...names: string[]) => {
         for (const n of names) {
@@ -362,12 +362,11 @@ export class SheetsClient {
         return -1;
       };
       const idx = {
-        assignmentId: col('assignment_id', 'id'),
-        reviewerEmail: col('reviewer_email', 'reviewer'),
-        revieweeEmployeeId: col('reviewee_employee_id', 'reviewee_id', 'employee_id'),
+        reviewerEmail: col('reviewer_email'),
+        revieweeEmail: col('reviewee_email'),
         targetType: col('target_type'),
         status: col('status'),
-        period: col('period') // nếu có
+        period: col('period')
       };
 
       const validTargets = ['EMPLOYEE', 'MANAGER'];
@@ -382,14 +381,20 @@ export class SheetsClient {
           const targetType = validTargets.includes(candidateTarget) ? candidateTarget : validTargets.includes(candidatePeriod) ? candidatePeriod : '';
 
           const statusVal = idx.status >= 0 ? row[idx.status] : '';
+          const revieweeEmail = idx.revieweeEmail >= 0 ? row[idx.revieweeEmail] : '';
 
-          assignments.push({
-            assignment_id: idx.assignmentId >= 0 ? row[idx.assignmentId] : row[0],
-            reviewer_email: row[reviewerCol],
-            reviewee_employee_id: idx.revieweeEmployeeId >= 0 ? row[idx.revieweeEmployeeId] : row[2],
-            target_type: targetType,
-            status: statusVal || 'PENDING'
-          });
+          // Yêu cầu phải có reviewee_email (không phụ thuộc employee_id)
+          if (revieweeEmail) {
+            assignments.push({
+              reviewer_email: row[reviewerCol],
+              reviewee_email: revieweeEmail,
+              target_type: targetType,
+              status: statusVal || 'PENDING',
+              period: idx.period >= 0 ? row[idx.period] : ''
+            });
+          } else {
+            console.warn('getAssignmentsByReviewer: missing reviewee_email, skip row', { rowIndex: i + 1 });
+          }
         }
       }
 
@@ -457,7 +462,8 @@ export class SheetsClient {
   }
 
   /**
-   * Lưu kết quả đánh giá
+   * Lưu kết quả đánh giá (email-based model)
+   * evaluation: { reviewer_email, reviewee_email, target_type, criteria_scores, comments, evaluation_date }
    */
   async saveEvaluation(evaluation: any): Promise<string> {
     try {
@@ -469,7 +475,9 @@ export class SheetsClient {
       for (const score of evaluation.criteria_scores) {
         rows.push([
           evaluationId,
-          evaluation.assignment_id,
+          evaluation.reviewer_email,
+          evaluation.reviewee_email,
+          evaluation.target_type,
           score.criteria_id,
           score.score,
           evaluation.comments,
@@ -496,10 +504,10 @@ export class SheetsClient {
 
         await this.sheets.spreadsheets.values.update({
           spreadsheetId: this.spreadsheetId,
-          range: `${sheetTitle}!A1:F1`,
+          range: `${sheetTitle}!A1:H1`,
           valueInputOption: 'RAW',
           requestBody: {
-            values: [['evaluation_id', 'assignment_id', 'criteria_id', 'score', 'comments', 'evaluation_date']]
+            values: [['evaluation_id', 'reviewer_email', 'reviewee_email', 'target_type', 'criteria_id', 'score', 'comments', 'evaluation_date']]
           }
         });
       }
@@ -507,7 +515,7 @@ export class SheetsClient {
       // Append dữ liệu
       await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.spreadsheetId,
-        range: `${sheetTitle}!A:F`,
+        range: `${sheetTitle}!A:H`,
         valueInputOption: 'RAW',
         requestBody: {
           values: rows
@@ -522,9 +530,10 @@ export class SheetsClient {
   }
 
   /**
-   * Cập nhật status của assignment
+   * Cập nhật status của assignment (email-based model)
+   * Tìm theo (reviewer_email, reviewee_email, target_type)
    */
-  async updateAssignmentStatus(assignmentId: string, status: string): Promise<void> {
+  async updateAssignmentStatus(reviewerEmail: string, revieweeEmail: string, targetType: string, status: string): Promise<void> {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
@@ -534,21 +543,34 @@ export class SheetsClient {
       const values = response.data.values;
       if (!values || values.length < 2) return;
 
-      // Dò header để xác định cột status
+      // Dò header
       const header = values[0];
-      const statusColIndex = header.indexOf('status');
-      const idColIndex = header.indexOf('assignment_id');
+      const col = (...names: string[]) => {
+        for (const n of names) {
+          const idx = header.indexOf(n);
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const idx = {
+        reviewerEmail: col('reviewer_email'),
+        revieweeEmail: col('reviewee_email'),
+        targetType: col('target_type'),
+        status: col('status')
+      };
 
-      if (statusColIndex < 0 || idColIndex < 0) {
-        console.error('updateAssignmentStatus: Cannot find status or assignment_id column');
+      if (idx.reviewerEmail < 0 || idx.revieweeEmail < 0 || idx.targetType < 0 || idx.status < 0) {
+        console.error('updateAssignmentStatus: Cannot find required columns');
         return;
       }
 
-      // Tìm assignment và cập nhật status
+      // Tìm dòng theo (reviewer_email, reviewee_email, target_type) và cập nhật status
       for (let i = 1; i < values.length; i++) {
-        if (values[i][idColIndex] === assignmentId) {
-          // Convert column index to letter (0=A, 1=B, etc.)
-          const colLetter = String.fromCharCode(65 + statusColIndex);
+        if (values[i][idx.reviewerEmail] === reviewerEmail &&
+            values[i][idx.revieweeEmail] === revieweeEmail &&
+            values[i][idx.targetType] === targetType) {
+          // Convert column index to letter
+          const colLetter = String.fromCharCode(65 + idx.status);
           await this.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
             range: `ASSIGNMENTS!${colLetter}${i + 1}`,

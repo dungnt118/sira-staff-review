@@ -82,15 +82,17 @@ window.SIRA_API = {
     return response.json();
   },
 
-  // Lưu kết quả đánh giá
-  saveEvaluation: async function(assignmentId, criteriaScores, comments = '') {
+  // Lưu kết quả đánh giá (email-based model)
+  saveEvaluation: async function(reviewerEmail, revieweeEmail, targetType, criteriaScores, comments = '') {
     const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.SAVE_EVALUATION), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        assignment_id: assignmentId,
+        reviewer_email: reviewerEmail,
+        reviewee_email: revieweeEmail,
+        target_type: targetType,
         criteria_scores: criteriaScores,
         comments
       })
