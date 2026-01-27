@@ -3,245 +3,258 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Chào mừng - SIRA</title>
+  <title>Dashboard - SIRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
+      padding: 20px;
     }
-    
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
     .header {
       background: white;
-      padding: 20px;
+      padding: 20px 30px;
       border-radius: 10px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
+      gap: 15px;
     }
-    
-    .header h1 {
-      margin: 0;
-      color: #333;
-    }
-    
-    .user-info {
+
+    .header-left {
       display: flex;
       align-items: center;
       gap: 15px;
     }
-    
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid #ddd;
-    }
-    
-    .user-details h3 {
-      margin: 0;
+
+    .header h1 {
+      font-size: 24px;
       color: #333;
-    }
-    
-    .user-details p {
       margin: 0;
-      color: #666;
-      font-size: 14px;
     }
-    
-    .logout-btn {
-      background: #f44336;
-      color: white;
+
+    .header-right {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
       border: none;
-      padding: 8px 16px;
       border-radius: 5px;
       cursor: pointer;
       font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
     }
-    
-    .logout-btn:hover {
-      background: #d32f2f;
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
     }
-    
-    .main-content {
+
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+
+    .btn-danger {
+      background: #ff5252;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #ff3838;
+    }
+
+    .assignments-section {
       background: white;
       padding: 30px;
       border-radius: 10px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .assignments-section h2 {
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .loading {
       text-align: center;
+      padding: 40px;
+      color: #666;
     }
-    
-    .welcome-message {
-      margin-bottom: 30px;
+
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
     }
-    
-    .welcome-message h2 {
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 20px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c62828;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .assignments-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .assignment-card {
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.3s;
+      cursor: pointer;
+      background: white;
+    }
+
+    .assignment-card:hover {
+      border-color: #667eea;
+      transform: translateY(-5px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    .assignment-card.completed {
+      border-color: #4caf50;
+      background: #f1f8e9;
+    }
+
+    .assignment-card.pending {
+      border-color: #ff9800;
+      background: #fff3e0;
+    }
+
+    .assignment-card h3 {
       color: #333;
       margin-bottom: 10px;
     }
-    
-    .employee-card {
-      background: #f5f5f5;
-      padding: 20px;
-      border-radius: 10px;
-      margin: 20px 0;
-      border-left: 5px solid #4CAF50;
-    }
-    
-    .employee-card h3 {
-      margin: 0 0 10px 0;
-      color: #333;
-    }
-    
-    .employee-details {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      text-align: left;
-      margin-top: 15px;
-    }
-    
-    .employee-details .label {
-      font-weight: bold;
-      color: #555;
-    }
-    
-    .employee-details .value {
-      color: #333;
-    }
-    
-    .action-buttons {
-      margin-top: 30px;
-    }
-    
-    .primary-btn {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      font-size: 16px;
-      border-radius: 5px;
-      cursor: pointer;
-      margin: 0 10px;
-      transition: background 0.3s;
-      text-decoration: none;
-      display: inline-block;
-    }
-    
-    .primary-btn:hover {
-      background: #45a049;
-    }
-    
-    .secondary-btn {
-      background: #2196F3;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      font-size: 16px;
-      border-radius: 5px;
-      cursor: pointer;
-      margin: 0 10px;
-      transition: background 0.3s;
-      text-decoration: none;
-      display: inline-block;
-    }
-    
-    .secondary-btn:hover {
-      background: #1976D2;
-    }
-    
-    .loading {
+
+    .assignment-card p {
       color: #666;
-      font-style: italic;
+      font-size: 14px;
+      margin: 5px 0;
     }
-    
+
+    .assignment-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+      text-transform: uppercase;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-completed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .assignment-type {
+      color: #667eea;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
     @media (max-width: 768px) {
       .header {
         flex-direction: column;
-        gap: 15px;
-        text-align: center;
+        align-items: flex-start;
       }
-      
-      .employee-details {
-        grid-template-columns: 1fr;
-      }
-      
-      .action-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        align-items: center;
-      }
-      
-      .primary-btn, .secondary-btn {
+
+      .header-right {
         width: 100%;
-        max-width: 300px;
-        margin: 0;
+        flex-wrap: wrap;
+      }
+
+      .assignments-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="header">
-    <h1>🎯 SIRA - Staff Review</h1>
-    <div class="user-info">
-      <img id="user-avatar" class="user-avatar" src="" alt="Avatar" style="display: none;">
-      <div class="user-details">
-        <h3 id="user-name"></h3>
-        <p id="user-email"></p>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <h1>📋 Dashboard - Nhiệm vụ đánh giá</h1>
       </div>
-      <button class="logout-btn" onclick="logout()">Đăng xuất</button>
-    </div>
-  </div>
-
-  <div class="main-content">
-    <div class="welcome-message">
-      <h2>Chào mừng bạn đến với SIRA!</h2>
-      <p>Hệ thống đánh giá và quản lý thông tin nhân viên</p>
-    </div>
-
-    <div id="employee-info" class="employee-card">
-      <h3>Thông tin nhân viên của bạn</h3>
-      <div class="employee-details">
-        <span class="label">Mã nhân viên:</span>
-        <span class="value" id="employee-id"></span>
-        
-        <span class="label">Họ tên:</span>
-        <span class="value" id="employee-name"></span>
-        
-        <span class="label">Email:</span>
-        <span class="value" id="employee-email"></span>
-        
-        <span class="label">Phòng ban:</span>
-        <span class="value" id="employee-department"></span>
-        
-        <span class="label">Chức vụ:</span>
-        <span class="value" id="employee-position"></span>
-        
-        <span class="label">Trạng thái:</span>
-        <span class="value" id="employee-status"></span>
+      <div class="header-right">
+        <button class="btn btn-primary" onclick="location.href='index.html'">🏠 Trang chủ</button>
+        <button class="btn btn-danger" onclick="logout()">🚪 Đăng xuất</button>
       </div>
     </div>
 
-    <div class="action-buttons">
-      <a href="dashboard.html" class="primary-btn">
-        📋 Xem nhiệm vụ đánh giá
-      </a>
-      <button class="secondary-btn" onclick="refreshData()">
-        🔄 Làm mới dữ liệu
-      </button>
+    <!-- Assignments Section -->
+    <div class="assignments-section">
+      <h2>Danh sách đánh giá được phân công</h2>
+
+      <div id="loading" class="loading hidden">
+        <div class="loading-spinner"></div>
+        <p>Đang tải danh sách...</p>
+      </div>
+
+      <div id="error" class="error hidden"></div>
+
+      <div id="empty" class="empty-state hidden">
+        <p>📝 Bạn không có nhiệm vụ đánh giá nào cần thực hiện.</p>
+      </div>
+
+      <div id="assignments" class="assignments-grid"></div>
     </div>
   </div>
 
-  <!-- Load config first -->
   <script src="js/config.js"></script>
   
   <script type="module">
@@ -251,36 +264,14 @@
     const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
     const auth = getAuth(app);
 
-    // Kiểm tra xem user đã đăng nhập chưa
+    // Kiểm tra xác thực
     function checkAuth() {
-      const savedUser = localStorage.getItem('currentUser');
-      if (!savedUser) {
-        alert('Bạn chưa đăng nhập. Đang chuyển hướng...');
+      const userData = localStorage.getItem('currentUser');
+      if (!userData) {
         window.location.href = 'index.html';
         return null;
       }
-      return JSON.parse(savedUser);
-    }
-
-    // Hiển thị thông tin user
-    function displayUserInfo(userData) {
-      // Auth info
-      document.getElementById('user-name').textContent = userData.auth.displayName || userData.employee.name;
-      document.getElementById('user-email').textContent = userData.auth.email;
-      
-      const avatar = document.getElementById('user-avatar');
-      if (userData.auth.photoURL) {
-        avatar.src = userData.auth.photoURL;
-        avatar.style.display = 'block';
-      }
-
-      // Employee info
-      document.getElementById('employee-id').textContent = userData.employee.employee_id;
-      document.getElementById('employee-name').textContent = userData.employee.name;
-      document.getElementById('employee-email').textContent = userData.employee.email;
-      document.getElementById('employee-department').textContent = userData.employee.department;
-      document.getElementById('employee-position').textContent = userData.employee.position;
-      document.getElementById('employee-status').textContent = userData.employee.status;
+      return JSON.parse(userData);
     }
 
     // Đăng xuất
@@ -297,37 +288,96 @@
       }
     };
 
-    // Làm mới dữ liệu
-    window.refreshData = async function() {
-      const userData = checkAuth();
-      if (!userData) return;
+    // Hiển thị lỗi
+    function showError(message) {
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      document.getElementById('loading').classList.add('hidden');
+    }
 
+    // Tải danh sách đánh giá
+    async function loadAssignments() {
       try {
-        const result = await window.SIRA_API.lookupEmployee(userData.auth.email);
-        
-        if (result.success) {
-          // Cập nhật localStorage
-          userData.employee = result.employee;
-          localStorage.setItem('currentUser', JSON.stringify(userData));
-          
-          // Cập nhật hiển thị
-          displayUserInfo(userData);
-          
-          alert('Dữ liệu đã được làm mới!');
+        const userData = checkAuth();
+        if (!userData) return;
+
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('error').classList.add('hidden');
+        document.getElementById('empty').classList.add('hidden');
+        document.getElementById('assignments').innerHTML = '';
+
+        console.log('Loading assignments for:', userData.auth.email);
+
+        // Gọi API qua Firebase Functions
+        const data = await window.SIRA_API.getMyAssignments(userData.auth.email);
+        console.log('Assignments data:', data);
+
+        document.getElementById('loading').classList.add('hidden');
+
+        if (data.success && data.assignments && data.assignments.length > 0) {
+          displayAssignments(data.assignments);
+        } else if (data.success && (!data.assignments || data.assignments.length === 0)) {
+          document.getElementById('empty').classList.remove('hidden');
         } else {
-          alert('Không thể làm mới dữ liệu: ' + result.message);
+          showError(data.error || 'Không thể tải danh sách đánh giá');
         }
       } catch (error) {
-        console.error('Refresh error:', error);
-        alert('Có lỗi khi làm mới dữ liệu: ' + error.message);
+        console.error('Load assignments error:', error);
+        showError('Lỗi: ' + error.message);
       }
-    };
+    }
+
+    // Hiển thị danh sách đánh giá
+    function displayAssignments(assignments) {
+      const container = document.getElementById('assignments');
+      container.innerHTML = '';
+
+      assignments.forEach(assignment => {
+        const card = document.createElement('div');
+        card.className = `assignment-card ${assignment.status.toLowerCase()}`;
+        card.onclick = () => startEvaluation(assignment);
+
+        const reviewee = assignment.reviewee;
+        const statusClass = assignment.status === 'COMPLETED' ? 'status-completed' : 'status-pending';
+
+        card.innerHTML = `
+          <div class="assignment-type">
+            ${assignment.target_type === 'EMPLOYEE' ? '👤 Nhân viên' : '👔 Quản lý'}
+          </div>
+          <h3>${reviewee.name}</h3>
+          <p><strong>Phòng ban:</strong> ${reviewee.department}</p>
+          <p><strong>Chức vụ:</strong> ${reviewee.position}</p>
+          <p><strong>Email:</strong> ${reviewee.email}</p>
+          <div class="assignment-status ${statusClass}">
+            ${assignment.status === 'COMPLETED' ? '✅ Đã hoàn thành' : '⏳ Chưa làm'}
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // Bắt đầu đánh giá
+    function startEvaluation(assignment) {
+      if (assignment.status === 'COMPLETED') {
+        alert('Đánh giá này đã được hoàn thành rồi!');
+        return;
+      }
+
+      // Lưu assignment vào session
+      sessionStorage.setItem('currentAssignment', JSON.stringify(assignment));
+      
+      // Chuyển đến trang đánh giá
+      window.location.href = 'evaluation.html';
+    }
 
     // Khởi tạo trang
     document.addEventListener('DOMContentLoaded', function() {
       const userData = checkAuth();
       if (userData) {
-        displayUserInfo(userData);
+        console.log('User:', userData);
+        loadAssignments();
       }
     });
   </script>

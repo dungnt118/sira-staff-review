@@ -339,6 +339,167 @@ export class SheetsClient {
   }
 
   /**
+   * Lấy danh sách assignments theo reviewer email
+   */
+  async getAssignmentsByReviewer(reviewerEmail: string): Promise<any[]> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:F',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return [];
+
+      const assignments = [];
+      // Bỏ qua header row (index 0)
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        if (row[1] === reviewerEmail) { // Column B = reviewer_email
+          assignments.push({
+            assignment_id: row[0],
+            reviewer_email: row[1],
+            reviewee_employee_id: row[2],
+            target_type: row[3],
+            status: row[4] || 'PENDING'
+          });
+        }
+      }
+
+      return assignments;
+    } catch (error: any) {
+      console.error('Error getting assignments by reviewer:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy criteria theo target type
+   */
+  async getCriteriaByTargetType(targetType: string): Promise<any[]> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'CRITERIA!A:G',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return [];
+
+      const criteria = [];
+      // Bỏ qua header row (index 0)
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        if (row[2] === targetType) { // Column C = target_type
+          criteria.push({
+            criteria_id: parseInt(row[0]),
+            criteria_name: row[1],
+            target_type: row[2],
+            category: row[3],
+            description: row[4],
+            parent_id: row[5] ? parseInt(row[5]) : null,
+            level: parseInt(row[6])
+          });
+        }
+      }
+
+      return criteria;
+    } catch (error: any) {
+      console.error('Error getting criteria by target type:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lưu kết quả đánh giá
+   */
+  async saveEvaluation(evaluation: any): Promise<string> {
+    try {
+      // Tạo evaluation ID
+      const evaluationId = `EVAL_${Date.now()}`;
+      
+      // Chuẩn bị dữ liệu cho EVALUATIONS sheet
+      const rows = [];
+      for (const score of evaluation.criteria_scores) {
+        rows.push([
+          evaluationId,
+          evaluation.assignment_id,
+          score.criteria_id,
+          score.score,
+          evaluation.comments,
+          evaluation.evaluation_date
+        ]);
+      }
+
+      // Kiểm tra EVALUATIONS sheet có tồn tại không, nếu không thì tạo
+      try {
+        await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: 'EVALUATIONS!A1:F1',
+        });
+      } catch {
+        // Tạo sheet EVALUATIONS với header
+        await this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: 'EVALUATIONS!A1:F1',
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [['evaluation_id', 'assignment_id', 'criteria_id', 'score', 'comments', 'evaluation_date']]
+          }
+        });
+      }
+
+      // Append dữ liệu
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EVALUATIONS!A:F',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: rows
+        }
+      });
+
+      return evaluationId;
+    } catch (error: any) {
+      console.error('Error saving evaluation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cập nhật status của assignment
+   */
+  async updateAssignmentStatus(assignmentId: string, status: string): Promise<void> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:F',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return;
+
+      // Tìm assignment và cập nhật status
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][0] === assignmentId) { // Column A = assignment_id
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: `ASSIGNMENTS!E${i + 1}`, // Column E = status
+            valueInputOption: 'RAW',
+            requestBody: {
+              values: [[status]]
+            }
+          });
+          break;
+        }
+      }
+    } catch (error: any) {
+      console.error('Error updating assignment status:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Kiểm tra xem user đã hoàn thành đánh giá assignment chưa
    */
   async checkCompletedAssignment(assignmentId: string): Promise<boolean> {

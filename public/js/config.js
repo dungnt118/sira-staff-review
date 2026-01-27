@@ -1,16 +1,18 @@
 // Configuration cho Staff Reviewer App
 window.SIRA_CONFIG = {
-  // API Base URL - change này để switch giữa local và production
-  API_BASE_URL: window.location.hostname === 'localhost' 
-    ? 'http://127.0.0.1:5001/tmas-5f48e/us-central1'  // Local emulator
-    : '',  // Production - sẽ dùng same origin
+  // API Base URL - ưu tiên emulator khi đang chạy hosting emulator (port 5000) hoặc localhost/127
+  // Emulator: hosting 5000, functions 5001
+  API_BASE_URL: (['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.port === '5000')
+    ? 'http://127.0.0.1:5001/tmas-5f48e/us-central1'
+    : 'https://us-central1-tmas-5f48e.cloudfunctions.net', // Prod: gọi thẳng Cloud Functions, tránh rewrite hosting
 
-  // API Endpoints
+  // API Endpoints (khớp với Cloud Functions hiện tại)
   ENDPOINTS: {
     EMPLOYEE_LOOKUP: '/employeeLookup',
-    GET_ASSIGNMENTS: '/getAssignments',
-    GET_CRITERIA: '/getCriteria', 
-    SAVE_RESPONSE: '/saveResponse'
+    LOGIN: '/login',
+    GET_MY_ASSIGNMENTS: '/getMyAssignments',
+    GET_CRITERIA: '/getCriteriaAPI',
+    SAVE_EVALUATION: '/saveEvaluation'
   },
 
   // Firebase Config
@@ -32,15 +34,18 @@ window.SIRA_API = {
     return window.SIRA_CONFIG.API_BASE_URL + endpoint;
   },
 
-  // Employee lookup
+  // Đăng nhập / tra cứu nhân viên (POST /employeeLookup với body)
   lookupEmployee: async function(email) {
-    const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.EMPLOYEE_LOOKUP), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email })
-    });
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.EMPLOYEE_LOOKUP),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -49,9 +54,12 @@ window.SIRA_API = {
     return response.json();
   },
 
-  // Get assignments
-  getAssignments: async function(email) {
-    const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_ASSIGNMENTS) + `?email=${encodeURIComponent(email)}`);
+  // Lấy danh sách phân công theo reviewer
+  getMyAssignments: async function(reviewerEmail) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_MY_ASSIGNMENTS) +
+        `?reviewer_email=${encodeURIComponent(reviewerEmail)}`
+    );
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -60,9 +68,12 @@ window.SIRA_API = {
     return response.json();
   },
 
-  // Get criteria
-  getCriteria: async function(group) {
-    const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_CRITERIA) + `?group=${encodeURIComponent(group)}`);
+  // Lấy tiêu chí đánh giá
+  getCriteria: async function(targetType) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_CRITERIA) +
+        `?target_type=${encodeURIComponent(targetType)}`
+    );
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -71,16 +82,17 @@ window.SIRA_API = {
     return response.json();
   },
 
-  // Save response
-  saveResponse: async function(assignmentId, responses) {
-    const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.SAVE_RESPONSE), {
+  // Lưu kết quả đánh giá
+  saveEvaluation: async function(assignmentId, criteriaScores, comments = '') {
+    const response = await fetch(this.getUrl(window.SIRA_CONFIG.ENDPOINTS.SAVE_EVALUATION), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         assignment_id: assignmentId,
-        responses: responses
+        criteria_scores: criteriaScores,
+        comments
       })
     });
 

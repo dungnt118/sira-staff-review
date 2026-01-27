@@ -235,7 +235,7 @@
     };
 
     // Kiểm tra trạng thái đăng nhập khi load trang
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         // User đã đăng nhập, kiểm tra localStorage
         const savedUser = localStorage.getItem('currentUser');
@@ -247,8 +247,39 @@
             return;
           }
         }
-        // Nếu không có thông tin nhân viên trong localStorage, cần lookup lại
-        showStatus("Đang kiểm tra thông tin đăng nhập...", 'loading');
+        
+        // Nếu không có thông tin nhân viên trong localStorage, tự động lookup
+        try {
+          showStatus("Đang kiểm tra thông tin đăng nhập...", 'loading');
+          setButtonLoading(true);
+          
+          const lookupResult = await lookupEmployee(user.email);
+          
+          if (lookupResult.success) {
+            // Lưu thông tin và chuyển hướng
+            localStorage.setItem('currentUser', JSON.stringify({
+              auth: {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL
+              },
+              employee: lookupResult.employee
+            }));
+            
+            window.location.href = 'welcome.html';
+          } else {
+            // Không tìm thấy trong hệ thống
+            showStatus(`Email ${user.email} không có trong hệ thống nhân viên.\nBạn không có quyền truy cập ứng dụng này.`, 'error');
+            setTimeout(() => {
+              window.location.href = 'no-access.html';
+            }, 2000);
+          }
+        } catch (error) {
+          console.error("Auto lookup error:", error);
+          showStatus("Không thể kiểm tra thông tin nhân viên. Vui lòng đăng nhập lại.", 'error');
+          setButtonLoading(false);
+        }
       } else {
         // User chưa đăng nhập
         hideStatus();
