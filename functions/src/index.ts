@@ -111,32 +111,12 @@ export const getMyAssignments = onRequest(async (req, res) => {
     }
 
     const sheetsClient = new SheetsClient();
+    // getAssignmentsByReviewer đã optimized: trả về assignments với reviewee object embedded
     const assignments = await sheetsClient.getAssignmentsByReviewer(reviewerEmail);
-    
-    // Lấy thông tin chi tiết của từng người được đánh giá (bắt buộc dùng email)
-    const detailedAssignments = [];
-    for (const assignment of assignments) {
-      if (!assignment.reviewee_email) continue;
-      const reviewee = await sheetsClient.getEmployeeByEmail(assignment.reviewee_email);
-      if (reviewee) {
-        detailedAssignments.push({
-          reviewer_email: assignment.reviewer_email,
-          reviewee_email: assignment.reviewee_email,
-          reviewee: {
-            email: assignment.reviewee_email,
-            name: reviewee.name,
-            department: reviewee.department,
-            position: reviewee.position
-          },
-          target_type: assignment.target_type,
-          status: assignment.status
-        });
-      }
-    }
 
     res.json({
       success: true,
-      assignments: detailedAssignments
+      assignments: assignments
     });
     
   } catch (error: any) {
@@ -234,17 +214,20 @@ export const saveEvaluation = onRequest(async (req, res) => {
     }
 
     const sheetsClient = new SheetsClient();
-    const evaluationId = await sheetsClient.saveEvaluation({
+    const evaluationData = {
       reviewer_email,
       reviewee_email,
       target_type,
       criteria_scores,
       comments: comments || '',
       evaluation_date: new Date().toISOString().split('T')[0]
-    });
+    };
 
-    // Cập nhật status assignment thành COMPLETED
-    await sheetsClient.updateAssignmentStatus(reviewer_email, reviewee_email, target_type, 'COMPLETED');
+    // OPTIMIZATION: Parallel execution - cả 2 operations không phụ thuộc nhau
+    const [evaluationId] = await Promise.all([
+      sheetsClient.saveEvaluation(evaluationData),
+      sheetsClient.updateAssignmentStatus(reviewer_email, reviewee_email, target_type, 'COMPLETED')
+    ]);
 
     res.json({
       success: true,

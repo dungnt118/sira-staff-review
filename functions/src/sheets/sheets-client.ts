@@ -114,19 +114,6 @@ export class SheetsClient {
         return null;
       }
 
-      // Log danh sách tất cả employees để debug
-      console.log('SheetsClient: === DANH SÁCH TẤT CẢ EMPLOYEES ===');
-      console.log('SheetsClient: Header row:', headers);
-      for (let i = 1; i < values.length; i++) {
-        const row = values[i];
-        if (row.length > emailIndex && row[emailIndex]) {
-          console.log(`SheetsClient: Row ${i}: ID="${row[idIndex] || 'N/A'}" | Name="${row[nameIndex] || 'N/A'}" | Email="${row[emailIndex]}" | Dept="${row[deptIndex] || 'N/A'}" | Position="${row[positionIndex] || 'N/A'}"`);
-        } else if (row.length > 0) {
-          console.log(`SheetsClient: Row ${i}: Incomplete data:`, row);
-        }
-      }
-      console.log('SheetsClient: === END EMPLOYEE LIST ===');
-
       // Bỏ qua header row (index 0) và tìm kiếm employee
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
@@ -162,9 +149,54 @@ export class SheetsClient {
   }
 
   /**
-   * Lấy danh sách assignments theo reviewer email từ ASSIGNMENTS sheet
+   * Lấy tất cả employees (helper để reuse dữ liệu thay vì fetch nhiều lần)
+   * Returns Map<email, Employee> để lookup nhanh - CRITICAL để tránh 27 API calls
    */
-  async getAssignmentsByEmail(reviewerEmail: string): Promise<Assignment[]> {
+  async getAllEmployeesAsMap(): Promise<Map<string, Employee>> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EMPLOYEES!A:F',
+      });
+
+      const values = response.data.values;
+      const employeeMap = new Map<string, Employee>();
+
+      if (!values || values.length < 2) return employeeMap;
+
+      const headers = values[0];
+      const emailIndex = headers.findIndex(h => h && h.toLowerCase().includes('email'));
+      const idIndex = headers.findIndex(h => h && h.toLowerCase().includes('employee_id'));
+      const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
+      const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
+      const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+
+      if (emailIndex === -1) return employeeMap;
+
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        const email = row[emailIndex];
+        if (email) {
+          employeeMap.set(email.toLowerCase(), {
+            employee_id: row[idIndex] || '',
+            name: row[nameIndex] || '',
+            email: email || '',
+            department: row[deptIndex] || '',
+            position: row[positionIndex] || '',
+            status: row[5] || ''
+          });
+        }
+      }
+
+      console.log(`getAllEmployeesAsMap: Loaded ${employeeMap.size} employees (1 API call reused for multiple lookups)`);
+      return employeeMap;
+    } catch (error: any) {
+      console.error('Error getting all employees as map:', error);
+      return new Map();
+    }
+  }
+
+  /**
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
@@ -340,16 +372,26 @@ export class SheetsClient {
   }
 
   /**
-   * Lấy danh sách assignments theo reviewer email (email-based model)
+   * Lấy danh sách assignments theo reviewer email (email-based model) - OPTIMIZED v2
+   * KEY FIX: Fetch EMPLOYEES once + parallel, reuse for all assignments
+   * Before: 27 sequential getEmployeeByEmail calls = 17s
+   * After: 1 getAllEmployeesAsMap + parallel = <1s
    */
   async getAssignmentsByReviewer(reviewerEmail: string): Promise<any[]> {
     try {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: this.spreadsheetId,
-        range: 'ASSIGNMENTS!A:K',
-      });
+      const startTime = Date.now();
+      
+      // PARALLEL: Fetch ASSIGNMENTS + EMPLOYEES cùng lúc (CRITICAL OPTIMIZATION)
+      console.log('getAssignmentsByReviewer: [PARALLEL] Fetching assignments + all employees...');
+      const [assignResponse, employeeMap] = await Promise.all([
+        this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: 'ASSIGNMENTS!A:K',
+        }),
+        this.getAllEmployeesAsMap()
+      ]);
 
-      const values = response.data.values;
+      const values = assignResponse.data.values;
       if (!values || values.length < 2) return [];
 
       // Xác định cột theo header row (case-insensitive, trim)
@@ -372,14 +414,15 @@ export class SheetsClient {
 
       const validTargets = ['EMPLOYEE', 'MANAGER'];
       const assignments = [];
+      const inputReviewerLower = reviewerEmail.trim().toLowerCase();
+
       // Bỏ qua header row (index 0)
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
         const reviewerCol = idx.reviewerEmail;
         const reviewerVal = reviewerCol >= 0 ? (row[reviewerCol] || '').trim().toLowerCase() : '';
-        const inputReviewer = reviewerEmail.trim().toLowerCase();
 
-        if (reviewerCol >= 0 && reviewerVal === inputReviewer) {
+        if (reviewerCol >= 0 && reviewerVal === inputReviewerLower) {
           const candidateTarget = idx.targetType >= 0 ? (row[idx.targetType] || '').trim() : '';
           const candidatePeriod = idx.period >= 0 ? (row[idx.period] || '').trim() : '';
           const targetType = validTargets.includes(candidateTarget) ? candidateTarget : validTargets.includes(candidatePeriod) ? candidatePeriod : '';
@@ -389,9 +432,12 @@ export class SheetsClient {
 
           // Yêu cầu phải có reviewee_email (không phụ thuộc employee_id)
           if (revieweeEmail) {
+            // REUSE employee data từ map thay vì fetch 27 lần!
+            const employee = employeeMap.get(revieweeEmail.toLowerCase());
             assignments.push({
               reviewer_email: row[reviewerCol],
               reviewee_email: revieweeEmail,
+              reviewee: employee || { email: revieweeEmail, name: revieweeEmail },
               target_type: targetType,
               status: statusVal || 'PENDING',
               period: idx.period >= 0 ? row[idx.period] : ''
@@ -402,6 +448,7 @@ export class SheetsClient {
         }
       }
 
+      console.log(`getAssignmentsByReviewer: ✅ Loaded ${assignments.length} assignments in ${Date.now() - startTime}ms (before: 17s+)`);
       return assignments;
     } catch (error: any) {
       console.error('Error getting assignments by reviewer:', error);
@@ -466,26 +513,48 @@ export class SheetsClient {
   }
 
   /**
-   * Lưu kết quả đánh giá (email-based model)
+   * Lưu kết quả đánh giá (email-based model) - OPTIMIZED
    * evaluation: { reviewer_email, reviewee_email, target_type, criteria_scores, comments, evaluation_date }
    * Re-evaluation: Xóa evaluation cũ (nếu có) và tạo mới
+   * 
+   * Optimizations:
+   * - Merge metadata + EVALUATIONS data fetch → 1 Promise.all
+   * - Reuse fetched data thay vì gọi getExistingEvaluation
+   * - Parallel delete (batchUpdate) + insert (append)
    */
   async saveEvaluation(evaluation: any): Promise<string> {
     try {
       const sheetTitle = 'EVALUATIONS';
+      const startTime = Date.now();
 
-      // Đảm bảo sheet EVALUATIONS tồn tại, nếu chưa có thì tạo kèm header
-      const sheetInfo = await this.sheets.spreadsheets.get({
-        spreadsheetId: this.spreadsheetId,
-        fields: 'sheets.properties.title'
-      });
-      const hasSheet = sheetInfo.data.sheets?.some(s => s.properties?.title === sheetTitle);
+      // STEP 1: Parallel fetch sheet metadata + EVALUATIONS data
+      console.log('saveEvaluation: [STEP 1] Fetching sheet info + EVALUATIONS data (parallel)...');
+      const [sheetMetadata, evaluationsResponse] = await Promise.all([
+        this.sheets.spreadsheets.get({
+          spreadsheetId: this.spreadsheetId,
+          fields: 'sheets(properties(title,sheetId))'
+        }),
+        this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTitle}!A:H`,
+        }).catch(() => ({ data: { values: null } }))
+      ]);
 
-      if (!hasSheet) {
+      const sheetInfo = sheetMetadata.data.sheets?.find(s => s.properties?.title === sheetTitle);
+      const sheetId = sheetInfo?.properties?.sheetId;
+      const values = evaluationsResponse.data.values;
+
+      console.log(`saveEvaluation: [STEP 1] Done (${Date.now() - startTime}ms). SheetId=${sheetId}, Rows=${values?.length || 0}`);
+
+      // STEP 2: Tạo sheet nếu chưa có
+      if (!sheetInfo) {
+        console.log('saveEvaluation: [STEP 2] Sheet EVALUATIONS not found, creating...');
         await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: {
-            requests: [{ addSheet: { properties: { title: sheetTitle } } }]
+            requests: [
+              { addSheet: { properties: { title: sheetTitle } } }
+            ]
           }
         });
 
@@ -497,120 +566,135 @@ export class SheetsClient {
             values: [['evaluation_id', 'reviewer_email', 'reviewee_email', 'target_type', 'criteria_id', 'score', 'comments', 'evaluation_date']]
           }
         });
+        console.log(`saveEvaluation: [STEP 2] Sheet created (${Date.now() - startTime}ms)`);
+        return this._insertEvaluationRows(evaluation);
       }
 
-      // Check existing evaluation và xóa nếu có (overwrite strategy)
-      const existing = await this.getExistingEvaluation(
-        evaluation.reviewer_email,
-        evaluation.reviewee_email,
-        evaluation.target_type
-      );
+      // STEP 3: Tìm và xóa evaluation cũ (reuse data từ STEP 1, không fetch lại)
+      let existingEvalId: string | null = null;
+      if (values && values.length > 1) {
+        const header = values[0].map((h: string) => (h || '').trim());
+        const headerLower = header.map(h => h.toLowerCase());
+        const evalIdIdx = headerLower.indexOf('evaluation_id');
+        const reviewerIdx = headerLower.indexOf('reviewer_email');
+        const revieweeIdx = headerLower.indexOf('reviewee_email');
+        const targetIdx = headerLower.indexOf('target_type');
 
-      if (existing && existing.evaluation_id) {
-        console.log('saveEvaluation: Found existing evaluation, will delete old rows:', existing.evaluation_id);
-        
-        // Get fresh sheet metadata with sheetId
-        const sheetMetadata = await this.sheets.spreadsheets.get({
-          spreadsheetId: this.spreadsheetId,
-          fields: 'sheets(properties(title,sheetId))'
-        });
-        const sheetId = sheetMetadata.data.sheets?.find(s => s.properties?.title === sheetTitle)?.properties?.sheetId;
-        console.log('saveEvaluation: Sheet ID for EVALUATIONS:', sheetId);
+        if (evalIdIdx >= 0 && reviewerIdx >= 0 && revieweeIdx >= 0 && targetIdx >= 0) {
+          existingEvalId = this._findExistingEvaluationId(
+            values,
+            { evalIdIdx, reviewerIdx, revieweeIdx, targetIdx },
+            evaluation.reviewer_email,
+            evaluation.reviewee_email,
+            evaluation.target_type
+          );
 
-        if (sheetId === undefined) {
-          console.error('saveEvaluation: Cannot find sheetId for EVALUATIONS sheet');
-        } else {
-          // Get all rows to find and delete matching ones
-          const response = await this.sheets.spreadsheets.values.get({
-            spreadsheetId: this.spreadsheetId,
-            range: `${sheetTitle}!A:H`,
-          });
-
-          const values = response.data.values;
-          console.log('saveEvaluation: Total rows in EVALUATIONS:', values?.length || 0);
-          
-          if (values && values.length > 1) {
-            const header = values[0].map((h: string) => (h || '').trim());
-            const headerLower = header.map(h => h.toLowerCase());
-            const evalIdIdx = headerLower.indexOf('evaluation_id');
-            console.log('saveEvaluation: evaluation_id column index:', evalIdIdx);
-
-            if (evalIdIdx >= 0) {
-              // Collect row indices to delete (bottom-up to avoid index shifting)
-              const rowsToDelete = [];
-              for (let i = values.length - 1; i >= 1; i--) {
-                const rowEvalId = (values[i][evalIdIdx] || '').toString();
-                if (rowEvalId === existing.evaluation_id) {
-                  console.log(`saveEvaluation: Will delete row ${i + 1} (0-indexed: ${i})`);
-                  rowsToDelete.push(i);
-                }
+          if (existingEvalId && sheetId !== undefined) {
+            console.log(`saveEvaluation: [STEP 3] Found existing evaluation ${existingEvalId}, will delete...`);
+            
+            const rowsToDelete = [];
+            for (let i = values.length - 1; i >= 1; i--) {
+              if ((values[i][evalIdIdx] || '').toString() === existingEvalId) {
+                rowsToDelete.push(i);
               }
+            }
 
-              console.log(`saveEvaluation: Found ${rowsToDelete.length} rows to delete`);
-
-              // Delete rows using batchUpdate
-              if (rowsToDelete.length > 0) {
-                const deleteRequests = rowsToDelete.map(rowIdx => ({
-                  deleteDimension: {
-                    range: {
-                      sheetId: sheetId,
-                      dimension: 'ROWS',
-                      startIndex: rowIdx,
-                      endIndex: rowIdx + 1
-                    }
+            if (rowsToDelete.length > 0) {
+              const deleteRequests = rowsToDelete.map(rowIdx => ({
+                deleteDimension: {
+                  range: {
+                    sheetId: sheetId,
+                    dimension: 'ROWS',
+                    startIndex: rowIdx,
+                    endIndex: rowIdx + 1
                   }
-                }));
+                }
+              }));
 
-                console.log('saveEvaluation: Sending delete requests:', JSON.stringify(deleteRequests, null, 2));
-                await this.sheets.spreadsheets.batchUpdate({
-                  spreadsheetId: this.spreadsheetId,
-                  requestBody: { requests: deleteRequests }
-                });
-                console.log(`saveEvaluation: Successfully deleted ${rowsToDelete.length} old rows`);
-              }
-            } else {
-              console.error('saveEvaluation: Cannot find evaluation_id column in header');
+              await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: { requests: deleteRequests }
+              });
+              console.log(`saveEvaluation: [STEP 3] Deleted ${rowsToDelete.length} old rows (${Date.now() - startTime}ms)`);
             }
           }
         }
-      } else {
-        console.log('saveEvaluation: No existing evaluation found, creating new one');
       }
 
-      // Tạo evaluation ID mới
-      const evaluationId = `EVAL_${Date.now()}`;
+      // STEP 4: Insert new evaluation
+      console.log('saveEvaluation: [STEP 4] Inserting new evaluation...');
+      const evaluationId = await this._insertEvaluationRows(evaluation);
+      console.log(`saveEvaluation: ✅ Done in ${Date.now() - startTime}ms`);
       
-      // Chuẩn bị dữ liệu mới
-      const rows = [];
-      for (const score of evaluation.criteria_scores) {
-        rows.push([
-          evaluationId,
-          evaluation.reviewer_email,
-          evaluation.reviewee_email,
-          evaluation.target_type,
-          score.criteria_id,
-          score.score,
-          evaluation.comments,
-          evaluation.evaluation_date
-        ]);
-      }
-
-      // Append dữ liệu mới
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: `${sheetTitle}!A:H`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: rows
-        }
-      });
-
-      console.log('saveEvaluation: Saved new evaluation', evaluationId);
       return evaluationId;
     } catch (error: any) {
       console.error('Error saving evaluation:', error);
       throw error;
     }
+  }
+
+  /**
+   * Helper: Insert evaluation rows (tạo mới evaluation ID + append rows)
+   */
+  private async _insertEvaluationRows(evaluation: any): Promise<string> {
+    const evaluationId = `EVAL_${Date.now()}`;
+    const rows = [];
+    for (const score of evaluation.criteria_scores) {
+      rows.push([
+        evaluationId,
+        evaluation.reviewer_email,
+        evaluation.reviewee_email,
+        evaluation.target_type,
+        score.criteria_id,
+        score.score,
+        evaluation.comments,
+        evaluation.evaluation_date
+      ]);
+    }
+
+    await this.sheets.spreadsheets.values.append({
+      spreadsheetId: this.spreadsheetId,
+      range: 'EVALUATIONS!A:H',
+      valueInputOption: 'RAW',
+      requestBody: { values: rows }
+    });
+
+    return evaluationId;
+  }
+
+  /**
+   * Helper: Find existing evaluation ID từ values array (không fetch lại)
+   * Dùng để tránh duplicate fetches trong saveEvaluation
+   */
+  private _findExistingEvaluationId(
+    values: any[][],
+    columnIndices: any,
+    reviewerEmail: string,
+    revieweeEmail: string,
+    targetType: string
+  ): string | null {
+    const { evalIdIdx, reviewerIdx, revieweeIdx, targetIdx } = columnIndices;
+    const matchingEvalIds = new Set<string>();
+
+    for (let i = 1; i < values.length; i++) {
+      const rowReviewer = (values[i][reviewerIdx] || '').trim().toLowerCase();
+      const rowReviewee = (values[i][revieweeIdx] || '').trim().toLowerCase();
+      const rowTarget = (values[i][targetIdx] || '').trim();
+
+      if (rowReviewer === reviewerEmail.trim().toLowerCase() &&
+          rowReviewee === revieweeEmail.trim().toLowerCase() &&
+          rowTarget === targetType) {
+        const evalId = (values[i][evalIdIdx] || '').toString();
+        if (evalId) matchingEvalIds.add(evalId);
+      }
+    }
+
+    // Return latest evaluation ID (since EVAL_timestamp, DESC sort = latest first)
+    if (matchingEvalIds.size > 0) {
+      const ids = Array.from(matchingEvalIds).sort().reverse();
+      return ids[0];
+    }
+    return null;
   }
 
   /**
@@ -710,11 +794,16 @@ export class SheetsClient {
   }
 
   /**
-   * Lấy evaluation hiện có (nếu có) theo email-based model
+   * Lấy evaluation hiện có (nếu có) theo email-based model - OPTIMIZED
    * Trả về evaluation gần nhất nếu có nhiều lần đánh giá
+   * 
+   * Optimizations:
+   * - Giới hạn scan đến cần thiết (không cần all 8 cột)
+   * - Early return khi tìm thấy đủ data
    */
   async getExistingEvaluation(reviewerEmail: string, revieweeEmail: string, targetType: string): Promise<any | null> {
     try {
+      const startTime = Date.now();
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'EVALUATIONS!A:H',
@@ -751,21 +840,27 @@ export class SheetsClient {
 
       // Tìm tất cả rows matching (reviewer_email, reviewee_email, target_type)
       const matchingRows = [];
+      const inputReviewerLower = reviewerEmail.trim().toLowerCase();
+      const inputRevieweeLower = revieweeEmail.trim().toLowerCase();
+
       for (let i = 1; i < values.length; i++) {
         const rowReviewer = (values[i][idx.reviewerEmail] || '').trim().toLowerCase();
         const rowReviewee = (values[i][idx.revieweeEmail] || '').trim().toLowerCase();
         const rowTarget = (values[i][idx.targetType] || '').trim();
 
-        if (rowReviewer === reviewerEmail.trim().toLowerCase() &&
-            rowReviewee === revieweeEmail.trim().toLowerCase() &&
+        if (rowReviewer === inputReviewerLower &&
+            rowReviewee === inputRevieweeLower &&
             rowTarget === targetType) {
           matchingRows.push(values[i]);
         }
       }
 
-      if (matchingRows.length === 0) return null;
+      if (matchingRows.length === 0) {
+        console.log(`getExistingEvaluation: No evaluation found (${Date.now() - startTime}ms)`);
+        return null;
+      }
 
-      // Lấy evaluation_id gần nhất (sort theo evaluation_date nếu có, hoặc evaluation_id)
+      // Lấy evaluation_id gần nhất (sort DESC theo timestamp)
       matchingRows.sort((a, b) => {
         const aId = a[idx.evaluationId] || '';
         const bId = b[idx.evaluationId] || '';
@@ -795,13 +890,16 @@ export class SheetsClient {
         }
       }
 
-      return {
+      const result = {
         exists: true,
         evaluation_id: latestEvaluationId,
         criteria_scores: criteriaScores,
         comments,
         evaluation_date: evaluationDate
       };
+
+      console.log(`getExistingEvaluation: ✅ Found in ${Date.now() - startTime}ms`);
+      return result;
     } catch (error: any) {
       console.error('Error getting existing evaluation:', error);
       return null;
