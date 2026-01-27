@@ -189,8 +189,10 @@
 
         if (lookupResult.success) {
           showStatus(`Chào mừng ${lookupResult.employee.name}!\nĐang chuyển hướng...`, 'success');
+
+          const role = (lookupResult.employee.role || 'USER').toUpperCase();
           
-          // Lưu thông tin vào localStorage
+          // Lưu thông tin vào localStorage + sessionStorage (role phục vụ hiển thị nút admin)
           localStorage.setItem('currentUser', JSON.stringify({
             auth: {
               uid: user.uid,
@@ -198,8 +200,12 @@
               displayName: user.displayName,
               photoURL: user.photoURL
             },
-            employee: lookupResult.employee
+            employee: {
+              ...lookupResult.employee,
+              role
+            }
           }));
+          sessionStorage.setItem('userRole', role);
 
           // Chuyển hướng sau 1.5 giây
           setTimeout(() => {

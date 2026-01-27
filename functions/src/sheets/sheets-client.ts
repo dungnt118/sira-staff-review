@@ -8,6 +8,7 @@ export interface Employee {
   department: string;
   position: string;
   status: string;
+  role: string;
 }
 
 export interface Assignment {
@@ -85,7 +86,7 @@ export class SheetsClient {
       
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'EMPLOYEES!A:F',
+        range: 'EMPLOYEES!A:G',
       });
 
       console.log('SheetsClient: API Response received, values count:', response.data.values?.length);
@@ -103,9 +104,11 @@ export class SheetsClient {
       const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
       const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
       const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+      const statusIndex = headers.findIndex(h => h && h.toLowerCase().includes('status'));
+      const roleIndex = headers.findIndex(h => h && h.toLowerCase().includes('role'));
       
       console.log('SheetsClient: Column indexes:', {
-        emailIndex, idIndex, nameIndex, deptIndex, positionIndex
+        emailIndex, idIndex, nameIndex, deptIndex, positionIndex, statusIndex, roleIndex
       });
 
       // Kiểm tra xem có tìm thấy cột email không
@@ -130,7 +133,8 @@ export class SheetsClient {
             email: row[emailIndex] || '',
             department: row[deptIndex] || '',
             position: row[positionIndex] || '',
-            status: row[5] || '' // Status có thể ở cột cuối
+            status: (statusIndex !== -1 ? row[statusIndex] : row[5]) || '',
+            role: (roleIndex !== -1 ? row[roleIndex] : '') || 'USER'
           };
         }
       }
@@ -156,7 +160,7 @@ export class SheetsClient {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'EMPLOYEES!A:F',
+        range: 'EMPLOYEES!A:G',
       });
 
       const values = response.data.values;
@@ -170,6 +174,8 @@ export class SheetsClient {
       const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
       const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
       const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+      const statusIndex = headers.findIndex(h => h && h.toLowerCase().includes('status'));
+      const roleIndex = headers.findIndex(h => h && h.toLowerCase().includes('role'));
 
       if (emailIndex === -1) return employeeMap;
 
@@ -183,7 +189,8 @@ export class SheetsClient {
             email: email || '',
             department: row[deptIndex] || '',
             position: row[positionIndex] || '',
-            status: row[5] || ''
+            status: (statusIndex !== -1 ? row[statusIndex] : row[5]) || '',
+            role: (roleIndex !== -1 ? row[roleIndex] : '') || 'USER'
           });
         }
       }
@@ -343,23 +350,34 @@ export class SheetsClient {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'EMPLOYEES!A:F',
+        range: 'EMPLOYEES!A:G',
       });
 
       const values = response.data.values;
       if (!values) return null;
 
+      const headers = values[0] || [];
+      const idIndex = headers.findIndex(h => h && h.toLowerCase().includes('employee_id'));
+      const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
+      const emailIndex = headers.findIndex(h => h && h.toLowerCase().includes('email'));
+      const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
+      const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+      const statusIndex = headers.findIndex(h => h && h.toLowerCase().includes('status'));
+      const roleIndex = headers.findIndex(h => h && h.toLowerCase().includes('role'));
+
       // Bỏ qua header row (index 0)
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[0] === employeeId) { // Column A = employee_id
+        const idValue = idIndex !== -1 ? row[idIndex] : row[0];
+        if (idValue === employeeId) {
           return {
-            employee_id: row[0] || '',
-            name: row[1] || '',
-            email: row[2] || '',
-            department: row[3] || '',
-            position: row[4] || '',
-            status: row[5] || ''
+            employee_id: idValue || '',
+            name: nameIndex !== -1 ? row[nameIndex] || '' : row[1] || '',
+            email: emailIndex !== -1 ? row[emailIndex] || '' : row[2] || '',
+            department: deptIndex !== -1 ? row[deptIndex] || '' : row[3] || '',
+            position: positionIndex !== -1 ? row[positionIndex] || '' : row[4] || '',
+            status: (statusIndex !== -1 ? row[statusIndex] : row[5]) || '',
+            role: (roleIndex !== -1 ? row[roleIndex] : '') || 'USER'
           };
         }
       }

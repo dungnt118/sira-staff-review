@@ -77,7 +77,8 @@ export const login = onRequest(async (req, res) => {
         email: employee.email,
         name: employee.name,
         department: employee.department,
-        position: employee.position
+        position: employee.position,
+        role: employee.role
       }
     });
     

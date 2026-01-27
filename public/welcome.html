@@ -73,6 +73,15 @@
       background: #5568d3;
     }
 
+    .btn-admin {
+      background: #ffb300;
+      color: #4a2c00;
+    }
+
+    .btn-admin:hover {
+      background: #ffa000;
+    }
+
     .btn-danger {
       background: #ff5252;
       color: white;
@@ -232,6 +241,7 @@
       </div>
       <div class="header-right">
         <button class="btn btn-primary" onclick="location.href='index.html'">🏠 Trang chủ</button>
+        <button class="btn btn-admin hidden" id="adminReportBtn" onclick="location.href='reports.html'">📊 Xem báo cáo</button>
         <button class="btn btn-danger" onclick="logout()">🚪 Đăng xuất</button>
       </div>
     </div>
@@ -271,7 +281,13 @@
         window.location.href = 'index.html';
         return null;
       }
-      return JSON.parse(userData);
+      const parsed = JSON.parse(userData);
+      if (parsed?.employee) {
+        const cachedRole = sessionStorage.getItem('userRole');
+        parsed.employee.role = (parsed.employee.role || cachedRole || 'USER').toUpperCase();
+        sessionStorage.setItem('userRole', parsed.employee.role);
+      }
+      return parsed;
     }
 
     // Đăng xuất
@@ -294,6 +310,17 @@
       errorEl.textContent = message;
       errorEl.classList.remove('hidden');
       document.getElementById('loading').classList.add('hidden');
+    }
+
+    function showAdminButtonIfNeeded(userData) {
+      const role = userData?.employee?.role || sessionStorage.getItem('userRole') || 'USER';
+      const btn = document.getElementById('adminReportBtn');
+      if (!btn) return;
+      if (role.toUpperCase() === 'ADMIN') {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
     }
 
     // Tải danh sách đánh giá
@@ -382,6 +409,7 @@
       const userData = checkAuth();
       if (userData) {
         console.log('User:', userData);
+        showAdminButtonIfNeeded(userData);
         loadAssignments();
       }
     });
