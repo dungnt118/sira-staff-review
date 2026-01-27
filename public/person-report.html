@@ -161,67 +161,75 @@
         return card;
       }
 
-      // Render categories
+      // Tạo table duy nhất cho toàn bộ tiêu chí
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr><th>Tiêu chí / Nhóm</th><th>Điểm TB</th><th>Max</th></tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+
+      // Render các categories với sub-criteria
       for (const cat of categories) {
-        const catDiv = document.createElement('div');
-        catDiv.style.marginBottom = '16px';
-
-        // Category header với điểm TB
-        const catHeader = document.createElement('div');
-        catHeader.style.cssText = 'font-weight: 700; color: #3b82f6; margin-bottom: 8px; font-size: 14px;';
-        catHeader.innerHTML = `${cat.category_name} <span style="color: #9ca3af;">(Điểm TB: ${cat.average})</span>`;
-        catDiv.appendChild(catHeader);
-
-        // Sub-criteria table
-        const table = document.createElement('table');
-        table.style.marginLeft = '12px';
-        table.innerHTML = `
-          <thead>
-            <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
-          </thead>
-          <tbody></tbody>
+        // Hàng nhóm (category)
+        const catRow = document.createElement('tr');
+        catRow.style.cssText = 'background: rgba(59, 130, 246, 0.1); font-weight: 700;';
+        catRow.innerHTML = `
+          <td style="padding-left: 8px; color: #3b82f6;">${cat.category_name}</td>
+          <td style="color: #3b82f6;">${cat.average}</td>
+          <td style="color: #3b82f6;">-</td>
         `;
-        const tbody = table.querySelector('tbody');
+        tbody.appendChild(catRow);
+
+        // Hàng con (sub-criteria)
         for (const subC of cat.sub_criteria) {
-          const tr = document.createElement('tr');
-          const maxScore = subC.max_score || 5;
-          tr.innerHTML = `<td>${subC.criteria_name}</td><td>${subC.average}</td><td>${maxScore}</td>`;
-          tbody.appendChild(tr);
+          const subRow = document.createElement('tr');
+          subRow.style.paddingLeft = '12px';
+          subRow.innerHTML = `
+            <td style="padding-left: 20px;">${subC.criteria_name}</td>
+            <td>${subC.average}</td>
+            <td>5</td>
+          `;
+          tbody.appendChild(subRow);
         }
-        catDiv.appendChild(table);
-        card.appendChild(catDiv);
       }
 
       // Render các tiêu chí không thuộc nhóm (nếu có)
       if (otherCriteria.length > 0) {
+        // Divider hàng nếu có cả categories và other criteria
         if (categories.length > 0) {
-          const divider = document.createElement('hr');
-          divider.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;';
-          card.appendChild(divider);
+          const dividerRow = document.createElement('tr');
+          dividerRow.innerHTML = '<td colspan="3" style="height: 1px; background: rgba(255,255,255,0.1); padding: 0;"></td>';
+          tbody.appendChild(dividerRow);
         }
 
-        const otherHeader = document.createElement('div');
-        otherHeader.style.cssText = 'font-weight: 700; color: #3b82f6; margin-bottom: 8px; font-size: 14px;';
-        otherHeader.textContent = 'Tiêu chí khác';
-        card.appendChild(otherHeader);
+        // Hàng "Tiêu chí khác" nếu có categories
+        if (categories.length > 0) {
+          const otherHeaderRow = document.createElement('tr');
+          otherHeaderRow.style.cssText = 'background: rgba(156, 163, 175, 0.1); font-weight: 700;';
+          otherHeaderRow.innerHTML = `
+            <td style="padding-left: 8px; color: #9ca3af;">Tiêu chí khác</td>
+            <td style="color: #9ca3af;">-</td>
+            <td style="color: #9ca3af;">-</td>
+          `;
+          tbody.appendChild(otherHeaderRow);
+        }
 
-        const table = document.createElement('table');
-        table.innerHTML = `
-          <thead>
-            <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
-          </thead>
-          <tbody></tbody>
-        `;
-        const tbody = table.querySelector('tbody');
+        // Sub-rows cho other criteria
         for (const c of otherCriteria) {
-          const tr = document.createElement('tr');
-          const maxScore = c.max_score || 5;
-          tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${maxScore}</td>`;
-          tbody.appendChild(tr);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td style="padding-left: ${categories.length > 0 ? '20px' : '8px'}">${c.criteria_name}</td>
+            <td>${c.average}</td>
+            <td>5</td>
+          `;
+          tbody.appendChild(row);
         }
-        card.appendChild(table);
       }
 
+      card.appendChild(table);
       return card;
     }
 
