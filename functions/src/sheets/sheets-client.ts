@@ -471,10 +471,37 @@ export class SheetsClient {
         ]);
       }
 
-      // Append dữ liệu trực tiếp vào EVALUATIONS sheet (sheet phải tồn tại với header)
+      const sheetTitle = 'EVALUATIONS';
+
+      // Đảm bảo sheet EVALUATIONS tồn tại, nếu chưa có thì tạo kèm header
+      const sheetInfo = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+        fields: 'sheets.properties.title'
+      });
+      const hasSheet = sheetInfo.data.sheets?.some(s => s.properties?.title === sheetTitle);
+
+      if (!hasSheet) {
+        await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title: sheetTitle } } }]
+          }
+        });
+
+        await this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTitle}!A1:F1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [['evaluation_id', 'assignment_id', 'criteria_id', 'score', 'comments', 'evaluation_date']]
+          }
+        });
+      }
+
+      // Append dữ liệu
       await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.spreadsheetId,
-        range: 'EVALUATIONS!A:F',
+        range: `${sheetTitle}!A:F`,
         valueInputOption: 'RAW',
         requestBody: {
           values: rows
