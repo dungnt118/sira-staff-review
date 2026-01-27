@@ -262,6 +262,57 @@ export const saveEvaluation = onRequest(async (req, res) => {
 });
 
 /**
+ * API lấy evaluation hiện có (nếu đã đánh giá trước đó)
+ * GET /get-evaluation?reviewer_email=xxx&reviewee_email=yyy&target_type=zzz
+ */
+export const getEvaluation = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    const reviewerEmail = req.query.reviewer_email as string;
+    const revieweeEmail = req.query.reviewee_email as string;
+    const targetType = req.query.target_type as string;
+
+    if (!reviewerEmail || !revieweeEmail || !targetType) {
+      res.status(400).json({ 
+        success: false, 
+        error: "reviewer_email, reviewee_email, and target_type are required" 
+      });
+      return;
+    }
+
+    const sheetsClient = new SheetsClient();
+    const evaluation = await sheetsClient.getExistingEvaluation(reviewerEmail, revieweeEmail, targetType);
+
+    if (!evaluation) {
+      res.json({
+        success: true,
+        exists: false
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      ...evaluation
+    });
+    
+  } catch (error: any) {
+    console.error('getEvaluation: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
  * API để tìm nhân viên theo email
  * POST /employee-lookup
  * Body: { email: string }

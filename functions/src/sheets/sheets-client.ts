@@ -352,11 +352,12 @@ export class SheetsClient {
       const values = response.data.values;
       if (!values || values.length < 2) return [];
 
-      // Xác định cột theo header row
-      const header = values[0];
+      // Xác định cột theo header row (case-insensitive, trim)
+      const header = values[0].map((h: string) => (h || '').trim());
+      const headerLower = header.map(h => h.toLowerCase());
       const col = (...names: string[]) => {
         for (const n of names) {
-          const idx = header.indexOf(n);
+          const idx = headerLower.indexOf(n.toLowerCase());
           if (idx >= 0) return idx;
         }
         return -1;
@@ -375,13 +376,16 @@ export class SheetsClient {
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
         const reviewerCol = idx.reviewerEmail;
-        if (reviewerCol >= 0 && row[reviewerCol] === reviewerEmail) {
-          const candidateTarget = idx.targetType >= 0 ? row[idx.targetType] : '';
-          const candidatePeriod = idx.period >= 0 ? row[idx.period] : '';
+        const reviewerVal = reviewerCol >= 0 ? (row[reviewerCol] || '').trim().toLowerCase() : '';
+        const inputReviewer = reviewerEmail.trim().toLowerCase();
+
+        if (reviewerCol >= 0 && reviewerVal === inputReviewer) {
+          const candidateTarget = idx.targetType >= 0 ? (row[idx.targetType] || '').trim() : '';
+          const candidatePeriod = idx.period >= 0 ? (row[idx.period] || '').trim() : '';
           const targetType = validTargets.includes(candidateTarget) ? candidateTarget : validTargets.includes(candidatePeriod) ? candidatePeriod : '';
 
           const statusVal = idx.status >= 0 ? row[idx.status] : '';
-          const revieweeEmail = idx.revieweeEmail >= 0 ? row[idx.revieweeEmail] : '';
+          const revieweeEmail = idx.revieweeEmail >= 0 ? (row[idx.revieweeEmail] || '').trim() : '';
 
           // Yêu cầu phải có reviewee_email (không phụ thuộc employee_id)
           if (revieweeEmail) {
@@ -464,27 +468,10 @@ export class SheetsClient {
   /**
    * Lưu kết quả đánh giá (email-based model)
    * evaluation: { reviewer_email, reviewee_email, target_type, criteria_scores, comments, evaluation_date }
+   * Re-evaluation: Xóa evaluation cũ (nếu có) và tạo mới
    */
   async saveEvaluation(evaluation: any): Promise<string> {
     try {
-      // Tạo evaluation ID
-      const evaluationId = `EVAL_${Date.now()}`;
-      
-      // Chuẩn bị dữ liệu cho EVALUATIONS sheet
-      const rows = [];
-      for (const score of evaluation.criteria_scores) {
-        rows.push([
-          evaluationId,
-          evaluation.reviewer_email,
-          evaluation.reviewee_email,
-          evaluation.target_type,
-          score.criteria_id,
-          score.score,
-          evaluation.comments,
-          evaluation.evaluation_date
-        ]);
-      }
-
       const sheetTitle = 'EVALUATIONS';
 
       // Đảm bảo sheet EVALUATIONS tồn tại, nếu chưa có thì tạo kèm header
@@ -512,7 +499,103 @@ export class SheetsClient {
         });
       }
 
-      // Append dữ liệu
+      // Check existing evaluation và xóa nếu có (overwrite strategy)
+      const existing = await this.getExistingEvaluation(
+        evaluation.reviewer_email,
+        evaluation.reviewee_email,
+        evaluation.target_type
+      );
+
+      if (existing && existing.evaluation_id) {
+        console.log('saveEvaluation: Found existing evaluation, will delete old rows:', existing.evaluation_id);
+        
+        // Get fresh sheet metadata with sheetId
+        const sheetMetadata = await this.sheets.spreadsheets.get({
+          spreadsheetId: this.spreadsheetId,
+          fields: 'sheets(properties(title,sheetId))'
+        });
+        const sheetId = sheetMetadata.data.sheets?.find(s => s.properties?.title === sheetTitle)?.properties?.sheetId;
+        console.log('saveEvaluation: Sheet ID for EVALUATIONS:', sheetId);
+
+        if (sheetId === undefined) {
+          console.error('saveEvaluation: Cannot find sheetId for EVALUATIONS sheet');
+        } else {
+          // Get all rows to find and delete matching ones
+          const response = await this.sheets.spreadsheets.values.get({
+            spreadsheetId: this.spreadsheetId,
+            range: `${sheetTitle}!A:H`,
+          });
+
+          const values = response.data.values;
+          console.log('saveEvaluation: Total rows in EVALUATIONS:', values?.length || 0);
+          
+          if (values && values.length > 1) {
+            const header = values[0].map((h: string) => (h || '').trim());
+            const headerLower = header.map(h => h.toLowerCase());
+            const evalIdIdx = headerLower.indexOf('evaluation_id');
+            console.log('saveEvaluation: evaluation_id column index:', evalIdIdx);
+
+            if (evalIdIdx >= 0) {
+              // Collect row indices to delete (bottom-up to avoid index shifting)
+              const rowsToDelete = [];
+              for (let i = values.length - 1; i >= 1; i--) {
+                const rowEvalId = (values[i][evalIdIdx] || '').toString();
+                if (rowEvalId === existing.evaluation_id) {
+                  console.log(`saveEvaluation: Will delete row ${i + 1} (0-indexed: ${i})`);
+                  rowsToDelete.push(i);
+                }
+              }
+
+              console.log(`saveEvaluation: Found ${rowsToDelete.length} rows to delete`);
+
+              // Delete rows using batchUpdate
+              if (rowsToDelete.length > 0) {
+                const deleteRequests = rowsToDelete.map(rowIdx => ({
+                  deleteDimension: {
+                    range: {
+                      sheetId: sheetId,
+                      dimension: 'ROWS',
+                      startIndex: rowIdx,
+                      endIndex: rowIdx + 1
+                    }
+                  }
+                }));
+
+                console.log('saveEvaluation: Sending delete requests:', JSON.stringify(deleteRequests, null, 2));
+                await this.sheets.spreadsheets.batchUpdate({
+                  spreadsheetId: this.spreadsheetId,
+                  requestBody: { requests: deleteRequests }
+                });
+                console.log(`saveEvaluation: Successfully deleted ${rowsToDelete.length} old rows`);
+              }
+            } else {
+              console.error('saveEvaluation: Cannot find evaluation_id column in header');
+            }
+          }
+        }
+      } else {
+        console.log('saveEvaluation: No existing evaluation found, creating new one');
+      }
+
+      // Tạo evaluation ID mới
+      const evaluationId = `EVAL_${Date.now()}`;
+      
+      // Chuẩn bị dữ liệu mới
+      const rows = [];
+      for (const score of evaluation.criteria_scores) {
+        rows.push([
+          evaluationId,
+          evaluation.reviewer_email,
+          evaluation.reviewee_email,
+          evaluation.target_type,
+          score.criteria_id,
+          score.score,
+          evaluation.comments,
+          evaluation.evaluation_date
+        ]);
+      }
+
+      // Append dữ liệu mới
       await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.spreadsheetId,
         range: `${sheetTitle}!A:H`,
@@ -522,6 +605,7 @@ export class SheetsClient {
         }
       });
 
+      console.log('saveEvaluation: Saved new evaluation', evaluationId);
       return evaluationId;
     } catch (error: any) {
       console.error('Error saving evaluation:', error);
@@ -537,17 +621,18 @@ export class SheetsClient {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'ASSIGNMENTS!A:F',
+        range: 'ASSIGNMENTS!A:K',
       });
 
       const values = response.data.values;
       if (!values || values.length < 2) return;
 
-      // Dò header
-      const header = values[0];
+      // Dò header (case-insensitive, trim)
+      const header = values[0].map((h: string) => (h || '').trim());
+      const headerLower = header.map(h => h.toLowerCase());
       const col = (...names: string[]) => {
         for (const n of names) {
-          const idx = header.indexOf(n);
+          const idx = headerLower.indexOf(n.toLowerCase());
           if (idx >= 0) return idx;
         }
         return -1;
@@ -560,17 +645,24 @@ export class SheetsClient {
       };
 
       if (idx.reviewerEmail < 0 || idx.revieweeEmail < 0 || idx.targetType < 0 || idx.status < 0) {
-        console.error('updateAssignmentStatus: Cannot find required columns');
+        console.error('updateAssignmentStatus: Cannot find required columns', { idx });
         return;
       }
 
-      // Tìm dòng theo (reviewer_email, reviewee_email, target_type) và cập nhật status
+      console.log('updateAssignmentStatus: Looking for', { reviewerEmail, revieweeEmail, targetType, status });
+
+      // Tìm dòng theo (reviewer_email, reviewee_email, target_type) và cập nhật status (trim + lower compare)
       for (let i = 1; i < values.length; i++) {
-        if (values[i][idx.reviewerEmail] === reviewerEmail &&
-            values[i][idx.revieweeEmail] === revieweeEmail &&
-            values[i][idx.targetType] === targetType) {
+        const rowReviewer = (values[i][idx.reviewerEmail] || '').trim().toLowerCase();
+        const rowReviewee = (values[i][idx.revieweeEmail] || '').trim().toLowerCase();
+        const rowTarget = (values[i][idx.targetType] || '').trim();
+
+        if (rowReviewer === reviewerEmail.trim().toLowerCase() &&
+            rowReviewee === revieweeEmail.trim().toLowerCase() &&
+            rowTarget === targetType) {
           // Convert column index to letter
           const colLetter = String.fromCharCode(65 + idx.status);
+          console.log('updateAssignmentStatus: Updating row', i + 1, 'column', colLetter, 'to', status);
           await this.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
             range: `ASSIGNMENTS!${colLetter}${i + 1}`,
@@ -579,6 +671,7 @@ export class SheetsClient {
               values: [[status]]
             }
           });
+          console.log('updateAssignmentStatus: Success');
           break;
         }
       }
@@ -613,6 +706,105 @@ export class SheetsClient {
     } catch (error) {
       console.error('Error checking completed assignment:', error);
       return false;
+    }
+  }
+
+  /**
+   * Lấy evaluation hiện có (nếu có) theo email-based model
+   * Trả về evaluation gần nhất nếu có nhiều lần đánh giá
+   */
+  async getExistingEvaluation(reviewerEmail: string, revieweeEmail: string, targetType: string): Promise<any | null> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EVALUATIONS!A:H',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return null;
+
+      // Dò header (case-insensitive, trim)
+      const header = values[0].map((h: string) => (h || '').trim());
+      const headerLower = header.map(h => h.toLowerCase());
+      const col = (...names: string[]) => {
+        for (const n of names) {
+          const idx = headerLower.indexOf(n.toLowerCase());
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const idx = {
+        evaluationId: col('evaluation_id'),
+        reviewerEmail: col('reviewer_email'),
+        revieweeEmail: col('reviewee_email'),
+        targetType: col('target_type'),
+        criteriaId: col('criteria_id'),
+        score: col('score'),
+        comments: col('comments'),
+        evaluationDate: col('evaluation_date')
+      };
+
+      if (idx.evaluationId < 0 || idx.reviewerEmail < 0 || idx.revieweeEmail < 0 || idx.targetType < 0) {
+        console.log('getExistingEvaluation: Missing required columns');
+        return null;
+      }
+
+      // Tìm tất cả rows matching (reviewer_email, reviewee_email, target_type)
+      const matchingRows = [];
+      for (let i = 1; i < values.length; i++) {
+        const rowReviewer = (values[i][idx.reviewerEmail] || '').trim().toLowerCase();
+        const rowReviewee = (values[i][idx.revieweeEmail] || '').trim().toLowerCase();
+        const rowTarget = (values[i][idx.targetType] || '').trim();
+
+        if (rowReviewer === reviewerEmail.trim().toLowerCase() &&
+            rowReviewee === revieweeEmail.trim().toLowerCase() &&
+            rowTarget === targetType) {
+          matchingRows.push(values[i]);
+        }
+      }
+
+      if (matchingRows.length === 0) return null;
+
+      // Lấy evaluation_id gần nhất (sort theo evaluation_date nếu có, hoặc evaluation_id)
+      matchingRows.sort((a, b) => {
+        const aId = a[idx.evaluationId] || '';
+        const bId = b[idx.evaluationId] || '';
+        return bId.localeCompare(aId); // DESC
+      });
+
+      const latestEvaluationId = matchingRows[0][idx.evaluationId];
+
+      // Aggregate criteria_scores từ các rows cùng evaluation_id
+      const criteriaScores: any[] = [];
+      let comments = '';
+      let evaluationDate = '';
+
+      for (const row of matchingRows) {
+        if (row[idx.evaluationId] === latestEvaluationId) {
+          const criteriaId = row[idx.criteriaId];
+          const score = row[idx.score] ? parseInt(row[idx.score]) : null;
+          if (criteriaId && score !== null) {
+            criteriaScores.push({ criteria_id: criteriaId, score });
+          }
+          if (idx.comments >= 0 && row[idx.comments]) {
+            comments = row[idx.comments];
+          }
+          if (idx.evaluationDate >= 0 && row[idx.evaluationDate]) {
+            evaluationDate = row[idx.evaluationDate];
+          }
+        }
+      }
+
+      return {
+        exists: true,
+        evaluation_id: latestEvaluationId,
+        criteria_scores: criteriaScores,
+        comments,
+        evaluation_date: evaluationDate
+      };
+    } catch (error: any) {
+      console.error('Error getting existing evaluation:', error);
+      return null;
     }
   }
 }

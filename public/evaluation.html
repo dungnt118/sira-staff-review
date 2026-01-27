@@ -260,7 +260,7 @@
     document.getElementById('form').addEventListener('submit', submitEvaluation);
 
     // Khởi tạo trang
-    (function init() {
+    (async function init() {
       const assignment = getAssignment();
       if (!assignment) {
         showError('Không có assignment trong phiên. Quay lại danh sách.');
@@ -268,7 +268,50 @@
         return;
       }
       renderAssignmentInfo(assignment);
-      loadCriteria(assignment);
+      await loadCriteria(assignment);
+
+      // Check xem đã có evaluation trước đó không (re-evaluation case)
+      if (assignment.reviewer_email && assignment.reviewee_email && assignment.target_type) {
+        try {
+          const result = await window.SIRA_API.getEvaluation(
+            assignment.reviewer_email,
+            assignment.reviewee_email,
+            assignment.target_type
+          );
+          
+          if (result.success && result.exists) {
+            console.log('Found existing evaluation:', result);
+            
+            // Pre-fill scores
+            if (result.criteria_scores && result.criteria_scores.length > 0) {
+              console.log('Pre-filling scores:', result.criteria_scores);
+              result.criteria_scores.forEach(item => {
+                // Radio name format: c_{criteriaId}
+                const radio = document.querySelector(`input[name="c_${item.criteria_id}"][value="${item.score}"]`);
+                console.log(`Looking for input[name="c_${item.criteria_id}"][value="${item.score}"]`, radio ? 'FOUND' : 'NOT FOUND');
+                if (radio) {
+                  radio.checked = true;
+                }
+              });
+            }
+
+            // Pre-fill comments
+            if (result.comments) {
+              document.getElementById('comments').value = result.comments;
+            }
+
+            // Show re-evaluation indicator
+            const container = document.querySelector('.container');
+            const indicator = document.createElement('div');
+            indicator.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #856404;';
+            indicator.innerHTML = `<strong>📝 Đang chỉnh sửa đánh giá trước</strong><br>Bạn đã đánh giá người này vào ${result.evaluation_date || 'trước đó'}. Gửi lại sẽ cập nhật đánh giá.`;
+            container.insertBefore(indicator, container.firstChild.nextSibling);
+          }
+        } catch (err) {
+          console.error('Error loading existing evaluation:', err);
+          // Không hiển thị lỗi cho user, tiếp tục với form trống
+        }
+      }
     })();
   </script>
 </body>

@@ -12,7 +12,8 @@ window.SIRA_CONFIG = {
     LOGIN: '/login',
     GET_MY_ASSIGNMENTS: '/getMyAssignments',
     GET_CRITERIA: '/getCriteriaAPI',
-    SAVE_EVALUATION: '/saveEvaluation'
+    SAVE_EVALUATION: '/saveEvaluation',
+    GET_EVALUATION: '/getEvaluation'
   },
 
   // Firebase Config
@@ -98,6 +99,20 @@ window.SIRA_API = {
       })
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Lấy evaluation hiện có (để re-evaluation)
+  getEvaluation: async function(reviewerEmail, revieweeEmail, targetType) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_EVALUATION) +
+        `?reviewer_email=${encodeURIComponent(reviewerEmail)}&reviewee_email=${encodeURIComponent(revieweeEmail)}&target_type=${encodeURIComponent(targetType)}`
+    );
+    
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
