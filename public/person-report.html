@@ -84,7 +84,7 @@
     </div>
     <div id="error" class="card hidden" style="margin-top:14px; color:#f87171;"></div>
 
-    <div id="content" class="grid grid-2" style="margin-top:14px;" class="hidden">
+    <div id="content" class="grid grid-2 hidden" style="margin-top:14px;">
       <div class="card">
         <div class="section-title">👤 Thông tin</div>
         <div class="metric">
@@ -195,7 +195,7 @@
 
         // Compute overall aggregates across targets
         let totalScore = 0; let evalCount = 0;
-        Object.values(data.targets || {}).forEach((t: any) => { totalScore += t.totalScore || 0; evalCount += t.evaluationCount || 0; });
+        Object.values(data.targets || {}).forEach((t) => { totalScore += t.totalScore || 0; evalCount += t.evaluationCount || 0; });
         const avg = evalCount > 0 ? Math.round((totalScore / evalCount) * 10) / 10 : 0;
         setText('infoTotal', Math.round(totalScore * 10)/10);
         setText('infoCount', evalCount);
