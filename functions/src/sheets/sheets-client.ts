@@ -1125,8 +1125,8 @@ export class SheetsClient {
 
     const employee = employeeMap.get(emailLower) || { email: revieweeEmail, name: revieweeEmail } as any;
 
-    // Map criteria_id -> { name, target_type }
-    const criteriaMap = new Map<string, { name: string; targetType: string }>();
+    // Map criteria_id -> { name, target_type, category, parent_id, level }
+    const criteriaMap = new Map<string, { name: string; targetType: string; category?: string; parentId?: string; level?: number }>();
     const cVals = criteriaResp.data.values || [];
     if (cVals.length > 1) {
       const header = cVals[0].map((h: string) => (h || '').trim().toLowerCase());
@@ -1134,6 +1134,9 @@ export class SheetsClient {
         id: header.indexOf('criteria_id'),
         name: header.indexOf('criteria_name'),
         target: header.indexOf('target_type'),
+        category: header.indexOf('category'),
+        parent: header.indexOf('parent_id'),
+        level: header.indexOf('level'),
       };
       for (let i = 1; i < cVals.length; i++) {
         const row = cVals[i];
@@ -1141,7 +1144,10 @@ export class SheetsClient {
         if (!id) continue;
         const name = idx.name >= 0 ? row[idx.name] : row[1];
         const targetType = idx.target >= 0 ? row[idx.target] : row[2];
-        criteriaMap.set(id, { name, targetType });
+        const category = idx.category >= 0 ? row[idx.category] : undefined;
+        const parentId = idx.parent >= 0 ? row[idx.parent] : undefined;
+        const level = idx.level >= 0 ? Number(row[idx.level]) : undefined;
+        criteriaMap.set(id, { name, targetType, category, parentId, level });
       }
     }
 
@@ -1166,7 +1172,7 @@ export class SheetsClient {
     const perTarget: Record<string, {
       totalScore: number;
       evalIds: Set<string>;
-      criteria: Map<string, { total: number; count: number; name: string }>;
+      criteria: Map<string, { total: number; count: number; name: string; category?: string; level?: number }>;
     }> = {};
 
     for (let i = 1; i < eVals.length; i++) {
@@ -1189,29 +1195,69 @@ export class SheetsClient {
 
       const cInfo = criteriaMap.get(criteriaId);
       const cName = cInfo?.name || criteriaId;
-      const cBucket = bucket.criteria.get(criteriaId) || { total: 0, count: 0, name: cName };
+      const cBucket = bucket.criteria.get(criteriaId) || { 
+        total: 0, 
+        count: 0, 
+        name: cName,
+        category: cInfo?.category,
+        level: cInfo?.level
+      };
       cBucket.total += scoreVal;
       cBucket.count += 1;
       bucket.criteria.set(criteriaId, cBucket);
     }
 
-    // Build response per target
+    // Build response per target with hierarchy support
     const targets: any = {};
     for (const [target, data] of Object.entries(perTarget)) {
-      const criteria = Array.from(data.criteria.entries()).map(([id, v]) => ({
+      // Parse criteria tính theo nhóm (category)
+      const allCriteria = Array.from(data.criteria.entries()).map(([id, v]) => ({
         criteria_id: id,
         criteria_name: v.name,
+        category: v.category,
+        level: v.level,
         average: v.count > 0 ? Math.round((v.total / v.count) * 10) / 10 : 0,
         total: v.total,
         count: v.count,
-      })).sort((a, b) => b.average - a.average || a.criteria_name.localeCompare(b.criteria_name));
+      }));
+
+      // Group by category if exists
+      const grouped: Record<string, any[]> = {};
+      const withoutCategory: any[] = [];
+      
+      for (const c of allCriteria) {
+        if (c.category) {
+          if (!grouped[c.category]) grouped[c.category] = [];
+          grouped[c.category].push(c);
+        } else {
+          withoutCategory.push(c);
+        }
+      }
+
+      // Build hierarchical structure: categories với averages, con lại sort by average
+      const categories = Object.entries(grouped)
+        .map(([catName, items]) => {
+          const avgOfCategory = items.length > 0 
+            ? Math.round((items.reduce((sum, c) => sum + c.average, 0) / items.length) * 10) / 10 
+            : 0;
+          return {
+            category_name: catName,
+            average: avgOfCategory,
+            sub_criteria: items.sort((a, b) => b.average - a.average || a.criteria_name.localeCompare(b.criteria_name))
+          };
+        })
+        .sort((a, b) => b.average - a.average || a.category_name.localeCompare(b.category_name));
+
+      // Sort criteria without category
+      withoutCategory.sort((a, b) => b.average - a.average || a.criteria_name.localeCompare(b.criteria_name));
 
       targets[target] = {
         target_type: target,
         totalScore: data.totalScore,
         evaluationCount: data.evalIds.size,
         averageScore: data.evalIds.size > 0 ? Math.round((data.totalScore / data.evalIds.size) * 10) / 10 : 0,
-        criteria
+        categories: categories,
+        criteria: withoutCategory
       };
     }
 

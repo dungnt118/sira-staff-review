@@ -149,8 +149,11 @@
       header.innerHTML = title;
       card.appendChild(header);
 
-      const criteria = targetData.criteria || [];
-      if (criteria.length === 0) {
+      const categories = targetData.categories || [];
+      const otherCriteria = targetData.criteria || [];
+      const hasData = categories.length > 0 || otherCriteria.length > 0;
+
+      if (!hasData) {
         const empty = document.createElement('div');
         empty.className = 'muted';
         empty.textContent = 'Chưa có dữ liệu đánh giá';
@@ -158,23 +161,67 @@
         return card;
       }
 
-      const table = document.createElement('table');
-      table.innerHTML = `
-        <thead>
-          <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tbody = table.querySelector('tbody');
+      // Render categories
+      for (const cat of categories) {
+        const catDiv = document.createElement('div');
+        catDiv.style.marginBottom = '16px';
 
-      criteria.forEach(c => {
-        const tr = document.createElement('tr');
-        const maxScore = c.max_score || 5;
-        tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${maxScore}</td>`;
-        tbody.appendChild(tr);
-      });
+        // Category header với điểm TB
+        const catHeader = document.createElement('div');
+        catHeader.style.cssText = 'font-weight: 700; color: #3b82f6; margin-bottom: 8px; font-size: 14px;';
+        catHeader.innerHTML = `${cat.category_name} <span style="color: #9ca3af;">(Điểm TB: ${cat.average})</span>`;
+        catDiv.appendChild(catHeader);
 
-      card.appendChild(table);
+        // Sub-criteria table
+        const table = document.createElement('table');
+        table.style.marginLeft = '12px';
+        table.innerHTML = `
+          <thead>
+            <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        for (const subC of cat.sub_criteria) {
+          const tr = document.createElement('tr');
+          const maxScore = subC.max_score || 5;
+          tr.innerHTML = `<td>${subC.criteria_name}</td><td>${subC.average}</td><td>${maxScore}</td>`;
+          tbody.appendChild(tr);
+        }
+        catDiv.appendChild(table);
+        card.appendChild(catDiv);
+      }
+
+      // Render các tiêu chí không thuộc nhóm (nếu có)
+      if (otherCriteria.length > 0) {
+        if (categories.length > 0) {
+          const divider = document.createElement('hr');
+          divider.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;';
+          card.appendChild(divider);
+        }
+
+        const otherHeader = document.createElement('div');
+        otherHeader.style.cssText = 'font-weight: 700; color: #3b82f6; margin-bottom: 8px; font-size: 14px;';
+        otherHeader.textContent = 'Tiêu chí khác';
+        card.appendChild(otherHeader);
+
+        const table = document.createElement('table');
+        table.innerHTML = `
+          <thead>
+            <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        for (const c of otherCriteria) {
+          const tr = document.createElement('tr');
+          const maxScore = c.max_score || 5;
+          tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${maxScore}</td>`;
+          tbody.appendChild(tr);
+        }
+        card.appendChild(table);
+      }
+
       return card;
     }
 
