@@ -354,11 +354,17 @@ export class SheetsClient {
 
       // Xác định cột theo header row thay vì fixed index
       const header = values[0];
-      const col = (name: string) => header.indexOf(name);
+      const col = (...names: string[]) => {
+        for (const n of names) {
+          const idx = header.indexOf(n);
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
       const idx = {
-        assignmentId: col('assignment_id'),
-        reviewerEmail: col('reviewer_email'),
-        revieweeEmployeeId: col('reviewee_employee_id'),
+        assignmentId: col('assignment_id', 'id'),
+        reviewerEmail: col('reviewer_email', 'reviewer'),
+        revieweeEmployeeId: col('reviewee_employee_id', 'reviewee_id', 'employee_id'),
         targetType: col('target_type'),
         status: col('status'),
         period: col('period') // nếu có
