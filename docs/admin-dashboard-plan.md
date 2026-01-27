@@ -59,7 +59,7 @@
 ## 📊 GIAI ĐOẠN 2: XÂY DỰNG BACKEND REPORTING API
 
 ### ✅ Task 2.1: Thiết kế API Endpoint - getReportData
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **API Specification**:
 ```
@@ -95,7 +95,7 @@ Response: {
 ---
 
 ### ✅ Task 2.2: Xử lý Logic - Top 5 Employees & Top 3 Managers
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Logic xử lý**:
 ```typescript
@@ -121,7 +121,7 @@ Response: {
 ---
 
 ### ✅ Task 2.3: Xử lý Logic - Reviewers chưa đánh giá
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Logic**:
 ```typescript
@@ -139,7 +139,7 @@ Response: {
 ---
 
 ### ✅ Task 2.4: Xử lý Logic - Reviewees chưa được đánh giá & đã được đánh giá
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Logic**:
 ```typescript
@@ -163,7 +163,7 @@ Response: {
 ---
 
 ### ✅ Task 2.5: Tạo Endpoint & Test
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Tạo endpoint `getReportData` trong `functions/src/index.ts`
@@ -183,7 +183,7 @@ Response: {
 ## 🎨 GIAI ĐOẠN 3: XÂY DỰNG FRONTEND DASHBOARD
 
 ### ✅ Task 3.1: Tạo Page - reports.html
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Tạo file `public/reports.html`
@@ -224,7 +224,7 @@ Response: {
 ---
 
 ### ✅ Task 3.2: API Integration - config.js
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Add endpoint `GET_REPORT_DATA: '/getReportData'` vào `ENDPOINTS`
@@ -237,7 +237,7 @@ Response: {
 ---
 
 ### ✅ Task 3.3: Render Top Performers Tables
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Implement function `renderTopEmployees(data)` với table HTML
@@ -267,7 +267,7 @@ Response: {
 ---
 
 ### ✅ Task 3.4: Render Lists - Chưa đánh giá & Chưa được đánh giá
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Render list nhân viên chưa đánh giá (với số lượng assignments pending)
@@ -284,7 +284,7 @@ Response: {
 ---
 
 ### ✅ Task 3.5: Styling & Polish
-**Trạng thái**: 🔴 Chưa bắt đầu
+**Trạng thái**: 🟢 Đã xong
 
 **Công việc**:
 - [ ] Add CSS cho report tables (responsive design)

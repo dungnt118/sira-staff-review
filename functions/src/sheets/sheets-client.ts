@@ -923,4 +923,184 @@ export class SheetsClient {
       return null;
     }
   }
+
+  /**
+   * Tổng hợp dữ liệu báo cáo cho ADMIN
+   * - Top 5 nhân viên (target_type=EMPLOYEE) theo tổng điểm
+   * - Top 3 quản lý (target_type=MANAGER) theo tổng điểm
+   * - Reviewers chưa đánh giá (status != COMPLETED)
+   * - Reviewees chưa được đánh giá & đã được đánh giá
+   * - Summary: totalEmployees, totalManagers, totalEvaluations, completionRate
+   */
+  async getReportData(): Promise<any> {
+    // Fetch tất cả sheets song song để giảm thời gian (1-2s)
+    const [employeeMap, evalResp, assignResp] = await Promise.all([
+      this.getAllEmployeesAsMap(),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EVALUATIONS!A:H',
+      }).catch(() => ({ data: { values: null } })),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:K',
+      }).catch(() => ({ data: { values: null } })),
+    ]);
+
+    // ----- Parse EVALUATIONS -----
+    const evalValues = evalResp.data.values || [];
+    const evalHeader = evalValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
+    const idxEval = (name: string) => evalHeader.indexOf(name.toLowerCase());
+    const evalIdx = {
+      evaluationId: idxEval('evaluation_id'),
+      reviewerEmail: idxEval('reviewer_email'),
+      revieweeEmail: idxEval('reviewee_email'),
+      targetType: idxEval('target_type'),
+      score: idxEval('score'),
+    };
+
+    // Tính tổng điểm theo evaluation_id trước (mỗi evaluation có nhiều dòng criteria)
+    const evaluationTotals = new Map<string, { revieweeEmail: string; targetType: string; totalScore: number }>();
+    if (evalValues.length > 1 && evalIdx.evaluationId >= 0 && evalIdx.revieweeEmail >= 0 && evalIdx.targetType >= 0) {
+      for (let i = 1; i < evalValues.length; i++) {
+        const row = evalValues[i];
+        const evalId = row[evalIdx.evaluationId];
+        const revieweeEmail = (row[evalIdx.revieweeEmail] || '').trim();
+        const targetType = row[evalIdx.targetType] || '';
+        const scoreVal = evalIdx.score >= 0 ? Number(row[evalIdx.score]) : Number(row[5]);
+        if (!evalId || !revieweeEmail || isNaN(scoreVal)) continue;
+
+        const existing = evaluationTotals.get(evalId) || { revieweeEmail, targetType, totalScore: 0 };
+        existing.totalScore += scoreVal;
+        // Preserve first seen reviewee/targetType for the evaluation
+        if (!existing.revieweeEmail) existing.revieweeEmail = revieweeEmail;
+        if (!existing.targetType) existing.targetType = targetType;
+        evaluationTotals.set(evalId, existing);
+      }
+    }
+
+    // Gom theo reviewee_email + target_type
+    const revieweeAggregates = new Map<string, { email: string; targetType: string; totalScore: number; evaluationCount: number }>();
+    for (const [, entry] of evaluationTotals) {
+      const key = `${entry.revieweeEmail.toLowerCase()}|${entry.targetType}`;
+      const agg = revieweeAggregates.get(key) || { email: entry.revieweeEmail, targetType: entry.targetType, totalScore: 0, evaluationCount: 0 };
+      agg.totalScore += entry.totalScore;
+      agg.evaluationCount += 1;
+      revieweeAggregates.set(key, agg);
+    }
+
+    // Tách top theo target_type
+    const toDisplay = (arr: any[], limit: number) =>
+      arr
+        .sort((a, b) => b.totalScore - a.totalScore || a.name.localeCompare(b.name))
+        .slice(0, limit);
+
+    const topEmployeesRaw = [] as any[];
+    const topManagersRaw = [] as any[];
+    for (const [, agg] of revieweeAggregates) {
+      const emp = employeeMap.get(agg.email.toLowerCase());
+      const base = {
+        email: agg.email,
+        name: emp?.name || agg.email,
+        totalScore: agg.totalScore,
+        evaluationCount: agg.evaluationCount,
+        avgScore: agg.evaluationCount > 0 ? agg.totalScore / agg.evaluationCount : 0,
+      };
+      if (agg.targetType === 'EMPLOYEE') topEmployeesRaw.push(base);
+      if (agg.targetType === 'MANAGER') topManagersRaw.push(base);
+    }
+
+    const topEmployees = toDisplay(topEmployeesRaw, 5);
+    const topManagers = toDisplay(topManagersRaw, 3);
+
+    // ----- Parse ASSIGNMENTS -----
+    const assignValues = assignResp.data.values || [];
+    const assignHeader = assignValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
+    const idxAssign = (name: string) => assignHeader.indexOf(name.toLowerCase());
+    const assignIdx = {
+      reviewerEmail: idxAssign('reviewer_email'),
+      revieweeEmail: idxAssign('reviewee_email'),
+      targetType: idxAssign('target_type'),
+      status: idxAssign('status'),
+    };
+
+    const totalAssignments = Math.max(assignValues.length - 1, 0);
+    let completedAssignments = 0;
+    const pendingByReviewer = new Map<string, number>();
+    const revieweesFromAssignments = new Set<string>();
+
+    if (assignValues.length > 1 && assignIdx.reviewerEmail >= 0 && assignIdx.revieweeEmail >= 0 && assignIdx.status >= 0) {
+      for (let i = 1; i < assignValues.length; i++) {
+        const row = assignValues[i];
+        const reviewer = (row[assignIdx.reviewerEmail] || '').trim();
+        const reviewee = (row[assignIdx.revieweeEmail] || '').trim();
+        const status = (row[assignIdx.status] || '').trim().toUpperCase();
+        if (reviewee) revieweesFromAssignments.add(reviewee.toLowerCase());
+
+        if (status === 'COMPLETED') {
+          completedAssignments += 1;
+        } else {
+          // pending assignment của reviewer
+          if (reviewer) {
+            pendingByReviewer.set(reviewer.toLowerCase(), (pendingByReviewer.get(reviewer.toLowerCase()) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const notEvaluatedReviewers = Array.from(pendingByReviewer.entries())
+      .map(([email, pending]) => {
+        const emp = employeeMap.get(email);
+        return {
+          email,
+          name: emp?.name || email,
+          pendingAssignments: pending,
+        };
+      })
+      .sort((a, b) => b.pendingAssignments - a.pendingAssignments || a.name.localeCompare(b.name));
+
+    // ----- Reviewees evaluated / not evaluated -----
+    const evaluatedRevieweesSet = new Set<string>();
+    for (const [, entry] of evaluationTotals) {
+      evaluatedRevieweesSet.add(entry.revieweeEmail.toLowerCase());
+    }
+
+    const notEvaluatedReviewees = Array.from(revieweesFromAssignments)
+      .filter(email => !evaluatedRevieweesSet.has(email))
+      .map(email => {
+        const emp = employeeMap.get(email);
+        return { email, name: emp?.name || email };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const evaluatedReviewees = Array.from(evaluatedRevieweesSet)
+      .map(email => {
+        // Đếm số evaluation_id (không phải số row criteria)
+        const evalCount = Array.from(evaluationTotals.values()).filter(v => v.revieweeEmail.toLowerCase() === email).length;
+        const emp = employeeMap.get(email);
+        return { email, name: emp?.name || email, evaluationCount: evalCount };
+      })
+      .sort((a, b) => b.evaluationCount - a.evaluationCount || a.name.localeCompare(b.name));
+
+    // ----- Summary -----
+    const totalEmployees = employeeMap.size;
+    const totalManagers = Array.from(employeeMap.values()).filter(e => (e.role || '').toUpperCase() === 'MANAGER').length;
+    const totalEvaluations = evaluationTotals.size;
+    const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 1000) / 10 : 0; // 1 decimal
+
+    return {
+      topEmployees,
+      topManagers,
+      notEvaluatedReviewers,
+      notEvaluatedReviewees,
+      evaluatedReviewees,
+      summary: {
+        totalEmployees,
+        totalManagers,
+        totalEvaluations,
+        completionRate,
+        totalAssignments,
+        completedAssignments,
+      }
+    };
+  }
 }

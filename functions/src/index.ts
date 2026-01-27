@@ -297,6 +297,50 @@ export const getEvaluation = onRequest(async (req, res) => {
 });
 
 /**
+ * API báo cáo (ADMIN only)
+ * GET /getReportData?admin_email=xxx
+ */
+export const getReportData = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    const adminEmail = req.query.admin_email as string;
+    if (!adminEmail) {
+      res.status(400).json({ success: false, error: "admin_email is required" });
+      return;
+    }
+
+    const sheetsClient = new SheetsClient();
+    const admin = await sheetsClient.getEmployeeByEmail(adminEmail);
+    const role = admin?.role?.toUpperCase() || 'USER';
+    if (role !== 'ADMIN') {
+      res.status(403).json({ success: false, error: "Permission denied: ADMIN only" });
+      return;
+    }
+
+    const data = await sheetsClient.getReportData();
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (error: any) {
+    console.error('getReportData: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
  * API để tìm nhân viên theo email
  * POST /employee-lookup
  * Body: { email: string }

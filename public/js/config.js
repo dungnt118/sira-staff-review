@@ -13,7 +13,8 @@ window.SIRA_CONFIG = {
     GET_MY_ASSIGNMENTS: '/getMyAssignments',
     GET_CRITERIA: '/getCriteriaAPI',
     SAVE_EVALUATION: '/saveEvaluation',
-    GET_EVALUATION: '/getEvaluation'
+    GET_EVALUATION: '/getEvaluation',
+    GET_REPORT_DATA: '/getReportData'
   },
 
   // Firebase Config
@@ -113,6 +114,20 @@ window.SIRA_API = {
         `?reviewer_email=${encodeURIComponent(reviewerEmail)}&reviewee_email=${encodeURIComponent(revieweeEmail)}&target_type=${encodeURIComponent(targetType)}`
     );
     
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Lấy dữ liệu báo cáo (ADMIN only)
+  getReportData: async function(adminEmail) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_REPORT_DATA) +
+        `?admin_email=${encodeURIComponent(adminEmail)}`
+    );
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
