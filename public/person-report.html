@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📄 Báo cáo chi tiết nhân sự - SIRA</title>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #1d1e26 0%, #0f172a 100%);
+      --card: #0f1724;
+      --card-2: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #f59e0b;
+      --border: rgba(255,255,255,0.08);
+      --good: #22c55e;
+      --mid: #3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .shell { max-width: 1180px; margin: 0 auto; }
+    .header {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 16px 18px; border-radius: 14px; background: rgba(17,24,39,0.75);
+      border: 1px solid var(--border); backdrop-filter: blur(8px);
+    }
+    .title { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 800; }
+    .pill { padding: 6px 10px; border-radius: 10px; font-size: 12px; color: #0f1724; background: var(--accent); font-weight: 700; }
+    .actions { display: flex; gap: 10px; }
+    .btn { border: none; border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 700; transition: all .2s; }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.2); }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .grid { display: grid; gap: 14px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 10px; color: #e0f2fe; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; font-size: 14px; }
+    th { color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 700; }
+    tr + tr td { border-top: 1px solid var(--border); }
+
+    .metric { display: flex; justify-content: space-between; align-items: center; }
+    .metric .value { font-size: 28px; font-weight: 800; }
+    .metric .label { color: var(--muted); font-size: 13px; }
+    .badge { padding: 5px 9px; border-radius: 9px; font-weight: 700; font-size: 12px; }
+    .badge-good { background: rgba(34,197,94,0.2); color: var(--good); }
+    .badge-mid { background: rgba(59,130,246,0.2); color: var(--mid); }
+    .muted { color: var(--muted); }
+    .hidden { display: none !important; }
+    .loader { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) { .header { flex-direction: column; align-items: flex-start; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="title">
+        <span style="font-size:22px">📄</span>
+        <div>
+          <div>Báo cáo chi tiết nhân sự</div>
+          <div class="pill" id="personName">...</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="history.back()">⬅️ Quay lại</button>
+        <button class="btn btn-ghost" onclick="location.href='reports.html'">📊 Tổng quan</button>
+      </div>
+    </div>
+
+    <div id="loading" class="card" style="margin-top:14px; text-align:center;">
+      <div class="loader"></div>
+      <div class="muted">Đang tải báo cáo...</div>
+    </div>
+    <div id="error" class="card hidden" style="margin-top:14px; color:#f87171;"></div>
+
+    <div id="content" class="grid grid-2" style="margin-top:14px;" class="hidden">
+      <div class="card">
+        <div class="section-title">👤 Thông tin</div>
+        <div class="metric">
+          <div>
+            <div class="label">Tên</div>
+            <div class="value" id="infoName">-</div>
+          </div>
+          <div class="badge badge-mid" id="infoEmail">-</div>
+        </div>
+        <div style="margin-top:12px;" class="muted" id="infoMeta">-</div>
+      </div>
+      <div class="card">
+        <div class="section-title">🎯 Tổng quan</div>
+        <div class="metric"><div class="label">Điểm trung bình</div><div class="value" id="infoAvg">-</div></div>
+        <div class="metric"><div class="label">Số lần đánh giá</div><div class="value" id="infoCount">-</div></div>
+        <div class="metric"><div class="label">Tổng điểm</div><div class="value" id="infoTotal">-</div></div>
+      </div>
+    </div>
+
+    <div id="targets" class="grid" style="margin-top:14px;"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    function getParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    function requireAdmin() {
+      const raw = localStorage.getItem('currentUser');
+      if (!raw) { window.location.href = 'index.html'; return null; }
+      const parsed = JSON.parse(raw);
+      const role = (parsed?.employee?.role || sessionStorage.getItem('userRole') || 'USER').toUpperCase();
+      sessionStorage.setItem('userRole', role);
+      if (role !== 'ADMIN') { window.location.href = 'welcome.html'; return null; }
+      return { ...parsed, employee: { ...parsed.employee, role } };
+    }
+
+    function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+
+    function renderTarget(targetData, title) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const header = document.createElement('div');
+      header.className = 'section-title';
+      header.innerHTML = title;
+      card.appendChild(header);
+
+      const meta = document.createElement('div');
+      meta.className = 'metric';
+      meta.innerHTML = `<div class="label">Tổng điểm</div><div class="value">${Math.round((targetData.totalScore || 0) * 10)/10}</div>`;
+      card.appendChild(meta);
+
+      const meta2 = document.createElement('div');
+      meta2.className = 'metric';
+      meta2.innerHTML = `<div class="label">Điểm TB</div><div class="value">${Math.round((targetData.averageScore || 0) * 10)/10}</div>`;
+      card.appendChild(meta2);
+
+      const meta3 = document.createElement('div');
+      meta3.className = 'metric';
+      meta3.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${targetData.evaluationCount || 0}</div>`;
+      card.appendChild(meta3);
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Số tiêu chí</th><th>Tổng điểm</th></tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+      (targetData.criteria || []).forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${c.count}</td><td>${c.total}</td>`;
+        tbody.appendChild(tr);
+      });
+      card.appendChild(table);
+
+      return card;
+    }
+
+    async function loadPersonReport() {
+      const adminUser = requireAdmin();
+      if (!adminUser) return;
+      const revieweeEmail = getParam('reviewee_email');
+      if (!revieweeEmail) { window.location.href = 'reports.html'; return; }
+
+      const loading = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const content = document.getElementById('content');
+      const targets = document.getElementById('targets');
+
+      loading.classList.remove('hidden');
+      errorEl.classList.add('hidden');
+      targets.innerHTML = '';
+
+      try {
+        const resp = await window.SIRA_API.getPersonReport(adminUser.auth.email, revieweeEmail);
+        if (!resp.success) throw new Error(resp.error || 'Không lấy được báo cáo');
+        const data = resp.data || {};
+        const rv = data.reviewee || { email: revieweeEmail };
+
+        document.getElementById('personName').textContent = rv.name || rv.email;
+        setText('infoName', rv.name || rv.email);
+        setText('infoEmail', rv.email || '');
+        setText('infoMeta', `${rv.department || ''} ${rv.position ? '• ' + rv.position : ''}`.trim());
+
+        // Compute overall aggregates across targets
+        let totalScore = 0; let evalCount = 0;
+        Object.values(data.targets || {}).forEach((t: any) => { totalScore += t.totalScore || 0; evalCount += t.evaluationCount || 0; });
+        const avg = evalCount > 0 ? Math.round((totalScore / evalCount) * 10) / 10 : 0;
+        setText('infoTotal', Math.round(totalScore * 10)/10);
+        setText('infoCount', evalCount);
+        setText('infoAvg', avg);
+
+        // Render per target
+        for (const targetType of ['EMPLOYEE', 'MANAGER']) {
+          const tData = data.targets?.[targetType];
+          if (!tData) continue;
+          const title = targetType === 'EMPLOYEE' ? '👤 Bộ tiêu chí Nhân viên' : '👔 Bộ tiêu chí Quản lý';
+          targets.appendChild(renderTarget(tData, title));
+        }
+
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = 'Lỗi: ' + err.message;
+        errorEl.classList.remove('hidden');
+        loading.classList.add('hidden');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPersonReport);
+  </script>
+</body>
+</html>

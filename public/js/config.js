@@ -14,7 +14,8 @@ window.SIRA_CONFIG = {
     GET_CRITERIA: '/getCriteriaAPI',
     SAVE_EVALUATION: '/saveEvaluation',
     GET_EVALUATION: '/getEvaluation',
-    GET_REPORT_DATA: '/getReportData'
+    GET_REPORT_DATA: '/getReportData',
+    GET_PERSON_REPORT: '/getPersonReport'
   },
 
   // Firebase Config
@@ -126,6 +127,20 @@ window.SIRA_API = {
     const response = await fetch(
       this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_REPORT_DATA) +
         `?admin_email=${encodeURIComponent(adminEmail)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Báo cáo chi tiết cho 1 nhân sự (ADMIN)
+  getPersonReport: async function(adminEmail, revieweeEmail) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_PERSON_REPORT) +
+        `?admin_email=${encodeURIComponent(adminEmail)}&reviewee_email=${encodeURIComponent(revieweeEmail)}`
     );
 
     if (!response.ok) {

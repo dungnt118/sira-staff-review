@@ -1103,4 +1103,121 @@ export class SheetsClient {
       }
     };
   }
+
+  /**
+   * Báo cáo chi tiết cho 1 nhân sự: theo target_type, điểm tổng, avg, và điểm trung bình từng criteria
+   */
+  async getPersonReport(revieweeEmail: string): Promise<any> {
+    const emailLower = revieweeEmail.trim().toLowerCase();
+
+    // Fetch song song: employees map, evaluations, criteria
+    const [employeeMap, evalResp, criteriaResp] = await Promise.all([
+      this.getAllEmployeesAsMap(),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EVALUATIONS!A:H',
+      }).catch(() => ({ data: { values: null } })),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'CRITERIA!A:H',
+      }).catch(() => ({ data: { values: null } })),
+    ]);
+
+    const employee = employeeMap.get(emailLower) || { email: revieweeEmail, name: revieweeEmail } as any;
+
+    // Map criteria_id -> { name, target_type }
+    const criteriaMap = new Map<string, { name: string; targetType: string }>();
+    const cVals = criteriaResp.data.values || [];
+    if (cVals.length > 1) {
+      const header = cVals[0].map((h: string) => (h || '').trim().toLowerCase());
+      const idx = {
+        id: header.indexOf('criteria_id'),
+        name: header.indexOf('criteria_name'),
+        target: header.indexOf('target_type'),
+      };
+      for (let i = 1; i < cVals.length; i++) {
+        const row = cVals[i];
+        const id = (idx.id >= 0 ? row[idx.id] : row[0])?.toString();
+        if (!id) continue;
+        const name = idx.name >= 0 ? row[idx.name] : row[1];
+        const targetType = idx.target >= 0 ? row[idx.target] : row[2];
+        criteriaMap.set(id, { name, targetType });
+      }
+    }
+
+    // Parse evaluations for this reviewee
+    const eVals = evalResp.data.values || [];
+    if (eVals.length <= 1) {
+      return {
+        reviewee: employee,
+        targets: {}
+      };
+    }
+    const eHeader = eVals[0].map((h: string) => (h || '').trim().toLowerCase());
+    const eIdx = {
+      evalId: eHeader.indexOf('evaluation_id'),
+      reviewer: eHeader.indexOf('reviewer_email'),
+      reviewee: eHeader.indexOf('reviewee_email'),
+      target: eHeader.indexOf('target_type'),
+      criteriaId: eHeader.indexOf('criteria_id'),
+      score: eHeader.indexOf('score'),
+    };
+
+    const perTarget: Record<string, {
+      totalScore: number;
+      evalIds: Set<string>;
+      criteria: Map<string, { total: number; count: number; name: string }>;
+    }> = {};
+
+    for (let i = 1; i < eVals.length; i++) {
+      const row = eVals[i];
+      const revieweeVal = (row[eIdx.reviewee] || '').trim().toLowerCase();
+      if (revieweeVal !== emailLower) continue;
+      const target = (row[eIdx.target] || '').trim();
+      if (!target) continue;
+      const evalId = (row[eIdx.evalId] || '').toString();
+      const criteriaId = (row[eIdx.criteriaId] || '').toString();
+      const scoreVal = eIdx.score >= 0 ? Number(row[eIdx.score]) : Number(row[5]);
+      if (!criteriaId || isNaN(scoreVal)) continue;
+
+      if (!perTarget[target]) {
+        perTarget[target] = { totalScore: 0, evalIds: new Set<string>(), criteria: new Map() };
+      }
+      const bucket = perTarget[target];
+      bucket.totalScore += scoreVal;
+      if (evalId) bucket.evalIds.add(evalId);
+
+      const cInfo = criteriaMap.get(criteriaId);
+      const cName = cInfo?.name || criteriaId;
+      const cBucket = bucket.criteria.get(criteriaId) || { total: 0, count: 0, name: cName };
+      cBucket.total += scoreVal;
+      cBucket.count += 1;
+      bucket.criteria.set(criteriaId, cBucket);
+    }
+
+    // Build response per target
+    const targets: any = {};
+    for (const [target, data] of Object.entries(perTarget)) {
+      const criteria = Array.from(data.criteria.entries()).map(([id, v]) => ({
+        criteria_id: id,
+        criteria_name: v.name,
+        average: v.count > 0 ? Math.round((v.total / v.count) * 10) / 10 : 0,
+        total: v.total,
+        count: v.count,
+      })).sort((a, b) => b.average - a.average || a.criteria_name.localeCompare(b.criteria_name));
+
+      targets[target] = {
+        target_type: target,
+        totalScore: data.totalScore,
+        evaluationCount: data.evalIds.size,
+        averageScore: data.evalIds.size > 0 ? Math.round((data.totalScore / data.evalIds.size) * 10) / 10 : 0,
+        criteria
+      };
+    }
+
+    return {
+      reviewee: employee,
+      targets
+    };
+  }
 }

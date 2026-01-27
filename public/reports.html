@@ -377,6 +377,10 @@
           <td>${r.evaluationCount}</td>
           <td>${formatScore(r.avgScore)}</td>
         `;
+        tr.style.cursor = 'pointer';
+        tr.onclick = () => {
+          window.location.href = `person-report.html?reviewee_email=${encodeURIComponent(r.email)}`;
+        };
         tbody.appendChild(tr);
       });
     }
@@ -429,11 +433,17 @@
         });
 
         renderList('notEvaluated', 'notEvalEmpty', resp.data.notEvaluatedReviewees || [], (item) => {
-          return buildListItem(item.name || item.email, item.email, chip('Chưa được đánh giá', 'danger'));
+          const el = buildListItem(item.name || item.email, item.email, chip('Chưa được đánh giá', 'danger'));
+          el.style.cursor = 'pointer';
+          el.onclick = () => window.location.href = `person-report.html?reviewee_email=${encodeURIComponent(item.email)}`;
+          return el;
         });
 
         renderList('evaluated', 'evaluatedEmpty', resp.data.evaluatedReviewees || [], (item) => {
-          return buildListItem(item.name || item.email, `${item.evaluationCount} đánh giá`, chip('Đã đánh giá', 'success'));
+          const el = buildListItem(item.name || item.email, `${item.evaluationCount} đánh giá`, chip('Đã đánh giá', 'success'));
+          el.style.cursor = 'pointer';
+          el.onclick = () => window.location.href = `person-report.html?reviewee_email=${encodeURIComponent(item.email)}`;
+          return el;
         });
       } catch (err) {
         console.error(err);

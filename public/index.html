@@ -132,6 +132,10 @@
     const app = initializeApp(window.SIRA_CONFIG.FIREBASE);
     const auth = getAuth(app);
 
+    // Guard flags to avoid duplicate lookups when auth state changes right after manual login
+    let loginFlowInProgress = false;
+    let authHandled = false;
+
     const loginBtn = document.getElementById("login");
     const loginText = document.getElementById("login-text");
     const loginSpinner = document.getElementById("login-spinner");
@@ -169,6 +173,7 @@
     // Xử lý đăng nhập
     loginBtn.onclick = async () => {
       try {
+        loginFlowInProgress = true;
         setButtonLoading(true);
         showStatus("Đang đăng nhập với Google...", 'loading');
 
@@ -207,6 +212,8 @@
           }));
           sessionStorage.setItem('userRole', role);
 
+          authHandled = true; // prevent onAuthStateChanged from re-running lookup right after manual login
+
           // Chuyển hướng sau 1.5 giây
           setTimeout(() => {
             window.location.href = 'welcome.html';
@@ -218,6 +225,7 @@
           setTimeout(() => {
             window.location.href = 'no-access.html';
           }, 2000);
+          authHandled = true;
         }
 
       } catch (error) {
@@ -237,11 +245,17 @@
         
         showStatus(errorMessage, 'error');
         setButtonLoading(false);
+      } finally {
+        loginFlowInProgress = false;
       }
     };
 
     // Kiểm tra trạng thái đăng nhập khi load trang
     onAuthStateChanged(auth, async (user) => {
+      if (loginFlowInProgress || authHandled) {
+        return;
+      }
+
       if (user) {
         // User đã đăng nhập, kiểm tra localStorage
         const savedUser = localStorage.getItem('currentUser');
@@ -249,6 +263,7 @@
           const userData = JSON.parse(savedUser);
           if (userData.employee) {
             // Đã có thông tin nhân viên, chuyển hướng
+            authHandled = true;
             window.location.href = 'welcome.html';
             return;
           }
@@ -272,6 +287,7 @@
               },
               employee: lookupResult.employee
             }));
+            authHandled = true;
             
             window.location.href = 'welcome.html';
           } else {
@@ -280,6 +296,7 @@
             setTimeout(() => {
               window.location.href = 'no-access.html';
             }, 2000);
+            authHandled = true;
           }
         } catch (error) {
           console.error("Auto lookup error:", error);
