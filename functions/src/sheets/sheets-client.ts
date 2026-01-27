@@ -400,25 +400,44 @@ export class SheetsClient {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'CRITERIA!A:G',
+        range: 'CRITERIA!A:H', // thêm max_value
       });
 
       const values = response.data.values;
       if (!values || values.length < 2) return [];
 
+      // Dò cột theo header
+      const header = values[0];
+      const col = (name: string) => header.indexOf(name);
+      const idx = {
+        id: col('criteria_id'),
+        name: col('criteria_name'),
+        target: col('target_type'),
+        category: col('category'),
+        description: col('description'),
+        parent: col('parent_id'),
+        level: col('level'),
+        max: col('max_value')
+      };
+
       const criteria = [];
-      // Bỏ qua header row (index 0)
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        if (row[2] === targetType) { // Column C = target_type
+        const targetVal = idx.target >= 0 ? row[idx.target] : row[2];
+        if (targetVal === targetType) {
+          const maxValRaw = idx.max >= 0 ? row[idx.max] : undefined;
+          const parsedMax = Number(maxValRaw);
+          const maxValue = parsedMax && parsedMax > 0 ? parsedMax : 5;
+
           criteria.push({
-            criteria_id: parseInt(row[0]),
-            criteria_name: row[1],
-            target_type: row[2],
-            category: row[3],
-            description: row[4],
-            parent_id: row[5] ? parseInt(row[5]) : null,
-            level: parseInt(row[6])
+            criteria_id: idx.id >= 0 ? parseInt(row[idx.id]) : parseInt(row[0]),
+            criteria_name: idx.name >= 0 ? row[idx.name] : row[1],
+            target_type: targetVal,
+            category: idx.category >= 0 ? row[idx.category] : row[3],
+            description: idx.description >= 0 ? row[idx.description] : row[4],
+            parent_id: idx.parent >= 0 && row[idx.parent] ? parseInt(row[idx.parent]) : null,
+            level: idx.level >= 0 ? parseInt(row[idx.level]) : parseInt(row[6]),
+            max_value: maxValue
           });
         }
       }
