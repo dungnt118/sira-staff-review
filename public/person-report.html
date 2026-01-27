@@ -84,7 +84,7 @@
     </div>
     <div id="error" class="card hidden" style="margin-top:14px; color:#f87171;"></div>
 
-    <div id="content" class="grid grid-2 hidden" style="margin-top:14px;">
+    <div id="content" class="hidden" style="margin-top:14px;">
       <div class="card">
         <div class="section-title">👤 Thông tin</div>
         <div class="metric">
@@ -96,15 +96,9 @@
         </div>
         <div style="margin-top:12px;" class="muted" id="infoMeta">-</div>
       </div>
-      <div class="card">
-        <div class="section-title">🎯 Tổng quan</div>
-        <div class="metric"><div class="label">Điểm trung bình</div><div class="value" id="infoAvg">-</div></div>
-        <div class="metric"><div class="label">Số lần đánh giá</div><div class="value" id="infoCount">-</div></div>
-        <div class="metric"><div class="label">Tổng điểm</div><div class="value" id="infoTotal">-</div></div>
-      </div>
     </div>
 
-    <div id="targets" class="grid" style="margin-top:14px;"></div>
+    <div id="reports" class="grid" style="margin-top:14px;"></div>
   </div>
 
   <script src="js/config.js"></script>
@@ -126,7 +120,7 @@
 
     function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
 
-    function renderTarget(targetData, title) {
+    function renderSummaryCard(title, avgScore, evalCount) {
       const card = document.createElement('div');
       card.className = 'card';
       const header = document.createElement('div');
@@ -134,36 +128,53 @@
       header.innerHTML = title;
       card.appendChild(header);
 
-      const meta = document.createElement('div');
-      meta.className = 'metric';
-      meta.innerHTML = `<div class="label">Tổng điểm</div><div class="value">${Math.round((targetData.totalScore || 0) * 10)/10}</div>`;
-      card.appendChild(meta);
+      const metric1 = document.createElement('div');
+      metric1.className = 'metric';
+      metric1.innerHTML = `<div class="label">Điểm trung bình</div><div class="value">${Math.round(avgScore * 10) / 10}</div>`;
+      card.appendChild(metric1);
 
-      const meta2 = document.createElement('div');
-      meta2.className = 'metric';
-      meta2.innerHTML = `<div class="label">Điểm TB</div><div class="value">${Math.round((targetData.averageScore || 0) * 10)/10}</div>`;
-      card.appendChild(meta2);
+      const metric2 = document.createElement('div');
+      metric2.className = 'metric';
+      metric2.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${evalCount}</div>`;
+      card.appendChild(metric2);
 
-      const meta3 = document.createElement('div');
-      meta3.className = 'metric';
-      meta3.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${targetData.evaluationCount || 0}</div>`;
-      card.appendChild(meta3);
+      return card;
+    }
+
+    function renderTargetWithHierarchy(targetData, title) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const header = document.createElement('div');
+      header.className = 'section-title';
+      header.innerHTML = title;
+      card.appendChild(header);
+
+      const criteria = targetData.criteria || [];
+      if (criteria.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'Chưa có dữ liệu đánh giá';
+        card.appendChild(empty);
+        return card;
+      }
 
       const table = document.createElement('table');
       table.innerHTML = `
         <thead>
-          <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Số tiêu chí</th><th>Tổng điểm</th></tr>
+          <tr><th>Tiêu chí</th><th>Điểm TB</th><th>Max</th></tr>
         </thead>
         <tbody></tbody>
       `;
       const tbody = table.querySelector('tbody');
-      (targetData.criteria || []).forEach(c => {
+
+      criteria.forEach(c => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${c.count}</td><td>${c.total}</td>`;
+        const maxScore = c.max_score || 5;
+        tr.innerHTML = `<td>${c.criteria_name}</td><td>${c.average}</td><td>${maxScore}</td>`;
         tbody.appendChild(tr);
       });
-      card.appendChild(table);
 
+      card.appendChild(table);
       return card;
     }
 
@@ -176,11 +187,11 @@
       const loading = document.getElementById('loading');
       const errorEl = document.getElementById('error');
       const content = document.getElementById('content');
-      const targets = document.getElementById('targets');
+      const reports = document.getElementById('reports');
 
       loading.classList.remove('hidden');
       errorEl.classList.add('hidden');
-      targets.innerHTML = '';
+      reports.innerHTML = '';
 
       try {
         const resp = await window.SIRA_API.getPersonReport(adminUser.auth.email, revieweeEmail);
@@ -193,24 +204,42 @@
         setText('infoEmail', rv.email || '');
         setText('infoMeta', `${rv.department || ''} ${rv.position ? '• ' + rv.position : ''}`.trim());
 
-        // Compute overall aggregates across targets
-        let totalScore = 0; let evalCount = 0;
-        Object.values(data.targets || {}).forEach((t) => { totalScore += t.totalScore || 0; evalCount += t.evaluationCount || 0; });
-        const avg = evalCount > 0 ? Math.round((totalScore / evalCount) * 10) / 10 : 0;
-        setText('infoTotal', Math.round(totalScore * 10)/10);
-        setText('infoCount', evalCount);
-        setText('infoAvg', avg);
-
-        // Render per target
-        for (const targetType of ['EMPLOYEE', 'MANAGER']) {
-          const tData = data.targets?.[targetType];
-          if (!tData) continue;
-          const title = targetType === 'EMPLOYEE' ? '👤 Bộ tiêu chí Nhân viên' : '👔 Bộ tiêu chí Quản lý';
-          targets.appendChild(renderTarget(tData, title));
-        }
-
+        // Render thông tin nhân viên
         loading.classList.add('hidden');
         content.classList.remove('hidden');
+
+        // Render báo cáo theo từng target_type
+        const targets = data.targets || {};
+        
+        // Báo cáo Nhân viên
+        if (targets.EMPLOYEE) {
+          const empTarget = targets.EMPLOYEE;
+          reports.appendChild(renderSummaryCard(
+            '👤 Báo cáo Nhân viên',
+            empTarget.averageScore || 0,
+            empTarget.evaluationCount || 0
+          ));
+          reports.appendChild(renderTargetWithHierarchy(empTarget, '📊 Chi tiết tiêu chí Nhân viên'));
+        }
+
+        // Báo cáo Lãnh đạo
+        if (targets.MANAGER) {
+          const mgTarget = targets.MANAGER;
+          reports.appendChild(renderSummaryCard(
+            '👔 Báo cáo Lãnh đạo',
+            mgTarget.averageScore || 0,
+            mgTarget.evaluationCount || 0
+          ));
+          reports.appendChild(renderTargetWithHierarchy(mgTarget, '📊 Chi tiết tiêu chí Lãnh đạo'));
+        }
+
+        // Nếu không có dữ liệu
+        if (!targets.EMPLOYEE && !targets.MANAGER) {
+          const empty = document.createElement('div');
+          empty.className = 'card';
+          empty.innerHTML = '<div class="muted" style="text-align:center;">Chưa có đánh giá nào</div>';
+          reports.appendChild(empty);
+        }
       } catch (err) {
         console.error(err);
         errorEl.textContent = 'Lỗi: ' + err.message;
