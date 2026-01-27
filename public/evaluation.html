@@ -95,11 +95,13 @@
       statusBox.textContent = msg;
       statusBox.className = 'error';
       statusBox.style.display = 'block';
+      statusBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     function showSuccess(msg) {
       statusBox.textContent = msg;
       statusBox.className = 'success';
       statusBox.style.display = 'block';
+      statusBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function getAssignment() {
@@ -205,6 +207,16 @@
       radios.forEach(r => criteriaIds.add(r.getAttribute('data-criteria-id')));
       for (const cid of criteriaIds) {
         if (!byCriteria.has(cid)) {
+          // Tìm tiêu chí chưa chọn và scroll đến đó
+          const firstUnscored = Array.from(radios).find(r => r.getAttribute('data-criteria-id') === cid);
+          if (firstUnscored) {
+            const criterionRow = firstUnscored.closest('.criterion');
+            if (criterionRow) {
+              criterionRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              criterionRow.style.background = '#fff3cd';
+              setTimeout(() => { criterionRow.style.background = ''; }, 2000);
+            }
+          }
           throw new Error('Vui lòng chọn điểm cho tất cả tiêu chí.');
         }
         scores.push({ criteria_id: cid, score: byCriteria.get(cid) });

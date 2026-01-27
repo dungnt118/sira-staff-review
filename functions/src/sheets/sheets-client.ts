@@ -47,18 +47,19 @@ export class SheetsClient {
 
   constructor() {
     try {
-      // FINAL APPROACH: Make sheets public and use simple API key
-      const apiKey = 'AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU';
+      // Use Service Account for both read and write operations
+      const serviceAccountPath = require('path').join(__dirname, '../../serviceAccount.json');
+      const auth = new google.auth.GoogleAuth({
+        keyFile: serviceAccountPath,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
       
-      // Use API Key approach
       this.sheets = google.sheets({ 
         version: 'v4', 
-        auth: apiKey 
+        auth 
       });
-      console.log('SheetsClient: Using API Key authentication:', apiKey.substring(0, 12) + '...');
+      console.log('SheetsClient: Using Service Account authentication from:', serviceAccountPath);
       
-      // Important: Google Sheets document MUST be public (Anyone with the link can view)
-      // Otherwise API key won't work
       this.spreadsheetId = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
       
     } catch (error) {
@@ -470,25 +471,7 @@ export class SheetsClient {
         ]);
       }
 
-      // Kiểm tra EVALUATIONS sheet có tồn tại không, nếu không thì tạo
-      try {
-        await this.sheets.spreadsheets.values.get({
-          spreadsheetId: this.spreadsheetId,
-          range: 'EVALUATIONS!A1:F1',
-        });
-      } catch {
-        // Tạo sheet EVALUATIONS với header
-        await this.sheets.spreadsheets.values.update({
-          spreadsheetId: this.spreadsheetId,
-          range: 'EVALUATIONS!A1:F1',
-          valueInputOption: 'RAW',
-          requestBody: {
-            values: [['evaluation_id', 'assignment_id', 'criteria_id', 'score', 'comments', 'evaluation_date']]
-          }
-        });
-      }
-
-      // Append dữ liệu
+      // Append dữ liệu trực tiếp vào EVALUATIONS sheet (sheet phải tồn tại với header)
       await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.spreadsheetId,
         range: 'EVALUATIONS!A:F',
@@ -518,12 +501,24 @@ export class SheetsClient {
       const values = response.data.values;
       if (!values || values.length < 2) return;
 
+      // Dò header để xác định cột status
+      const header = values[0];
+      const statusColIndex = header.indexOf('status');
+      const idColIndex = header.indexOf('assignment_id');
+
+      if (statusColIndex < 0 || idColIndex < 0) {
+        console.error('updateAssignmentStatus: Cannot find status or assignment_id column');
+        return;
+      }
+
       // Tìm assignment và cập nhật status
       for (let i = 1; i < values.length; i++) {
-        if (values[i][0] === assignmentId) { // Column A = assignment_id
+        if (values[i][idColIndex] === assignmentId) {
+          // Convert column index to letter (0=A, 1=B, etc.)
+          const colLetter = String.fromCharCode(65 + statusColIndex);
           await this.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
-            range: `ASSIGNMENTS!E${i + 1}`, // Column E = status
+            range: `ASSIGNMENTS!${colLetter}${i + 1}`,
             valueInputOption: 'RAW',
             requestBody: {
               values: [[status]]
