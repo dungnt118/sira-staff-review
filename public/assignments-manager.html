@@ -162,6 +162,16 @@
       color: #666;
     }
 
+    .stat-card-warning {
+      border-left-color: #FF9800;
+      background: #fff3e0;
+    }
+
+    .stat-card-info {
+      border-left-color: #9C27B0;
+      background: #f3e5f5;
+    }
+
     .assignments-table-container {
       overflow-x: auto;
       margin-bottom: 20px;
@@ -400,6 +410,12 @@
       color: #333;
     }
 
+    .selected-reviewee-meta {
+      color: #888;
+      font-size: 12px;
+      margin: 2px 0;
+    }
+
     .selected-reviewee-email {
       color: #666;
       font-size: 12px;
@@ -425,6 +441,65 @@
       color: #999;
       padding: 20px;
       font-style: italic;
+    }
+
+    /* Searchable Select Styles */
+    .searchable-select-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #2196F3;
+      box-shadow: 0 0 5px rgba(33, 150, 243, 0.2);
+    }
+
+    .searchable-select-wrapper select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      height: auto;
+      min-height: 100px;
+      background-color: white;
+    }
+
+    .searchable-select-wrapper select:focus {
+      outline: none;
+      border-color: #2196F3;
+      box-shadow: 0 0 5px rgba(33, 150, 243, 0.2);
+    }
+
+    .searchable-select-wrapper option {
+      padding: 5px;
+      line-height: 1.5;
+    }
+
+    .btn-info {
+      background: #2196F3;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.3s;
+    }
+
+    .btn-info:hover {
+      background: #1976D2;
     }
   </style>
 </head>
@@ -463,6 +538,14 @@
             <h3 id="completedCount">0</h3>
             <p>Đã hoàn thành</p>
           </div>
+          <div class="stat-card stat-card-warning">
+            <h3 id="noReviewerCount">0</h3>
+            <p>Chưa có Reviewer</p>
+          </div>
+          <div class="stat-card stat-card-info">
+            <h3 id="noRevieweeCount">0</h3>
+            <p>Chưa có Reviewee</p>
+          </div>
         </div>
 
         <!-- Filters -->
@@ -496,6 +579,14 @@
             </select>
           </div>
           <div class="filter-group">
+            <label>Nhóm dữ liệu</label>
+            <select id="groupByMode" onchange="applyFilters()">
+              <option value="none">Không nhóm</option>
+              <option value="reviewer">Nhóm theo Reviewer</option>
+              <option value="reviewee">Nhóm theo Reviewee</option>
+            </select>
+          </div>
+          <div class="filter-group">
             <label>&nbsp;</label>
             <button onclick="resetFilters()" class="btn btn-primary">Đặt lại</button>
           </div>
@@ -510,10 +601,29 @@
         </div>
 
         <!-- Action Buttons -->
-        <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
           <button onclick="openAddModal()" class="btn btn-success">➕ Thêm Assignment</button>
           <button onclick="saveAllChanges()" class="btn btn-primary">💾 Lưu tất cả thay đổi</button>
           <button onclick="loadData()" class="btn btn-primary">🔄 Tải lại</button>
+          <button onclick="toggleDetailReport()" class="btn btn-info">📊 Báo cáo chi tiết</button>
+        </div>
+
+        <!-- Detailed Report -->
+        <div id="detailReportSection" style="display: none; margin-bottom: 20px;">
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px;">
+            <h3>📋 Báo cáo Chi tiết</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+              <div>
+                <h4>👤 Nhân viên chưa có Reviewer (chưa ai review)</h4>
+                <div id="noReviewerList" style="background: white; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;"></div>
+              </div>
+              <div>
+                <h4>👥 Nhân viên chưa có Reviewee (chưa review ai)</h4>
+                <div id="noRevieweeList" style="background: white; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Table -->
@@ -610,10 +720,15 @@
 
           <div class="form-group">
             <label>Chọn Reviewee (người được đánh giá) *</label>
-            <select id="revieweeSelectBulk" onchange="onBulkRevieweeSelect()">
-              <option value="">-- Chọn reviewee để thêm --</option>
-            </select>
-            <div class="info-text">Click vào dropdown để chọn nhiều reviewee</div>
+            <div class="searchable-select-wrapper">
+              <input type="text" id="revieweeSearchBulk" placeholder="🔍 Tìm kiếm reviewee..." class="search-input" onkeyup="filterRevieweeDropdown()">
+              <select id="revieweeSelectBulk" onchange="onBulkRevieweeSelect()" size="5">
+                <option value="">-- Chọn reviewee để thêm --</option>
+              </select>
+            </div>
+            <div style="margin-top: 8px;">
+              <button type="button" class="btn btn-sm btn-info" onclick="selectAllAvailableReviewees()">Chọn hết</button>
+            </div>
           </div>
 
           <!-- Selected reviewees list -->
@@ -727,6 +842,16 @@
       
       document.getElementById('pendingCount').textContent = pending;
       document.getElementById('completedCount').textContent = completed;
+
+      // Tính số nhân viên chưa có reviewer (chưa ai review họ)
+      const revieweeEmails = new Set(allAssignments.map(a => a.reviewee_email));
+      const noReviewerCount = allEmployees.filter(emp => !revieweeEmails.has(emp.email)).length;
+      document.getElementById('noReviewerCount').textContent = noReviewerCount;
+
+      // Tính số nhân viên chưa có reviewee (chưa review ai)
+      const reviewerEmails = new Set(allAssignments.map(a => a.reviewer_email));
+      const noRevieweeCount = allEmployees.filter(emp => !reviewerEmails.has(emp.email)).length;
+      document.getElementById('noRevieweeCount').textContent = noRevieweeCount;
     }
 
     function populateFilters() {
@@ -934,12 +1059,49 @@
           <div class="selected-reviewee-item">
             <div class="selected-reviewee-info">
               <div class="selected-reviewee-name">${emp?.name || email}</div>
+              <div class="selected-reviewee-meta">${emp?.department || ''} | ${emp?.position || ''}</div>
               <div class="selected-reviewee-email">${email}</div>
             </div>
             <button type="button" class="selected-reviewee-remove" onclick="removeBulkReviewee('${email}')">✕</button>
           </div>
         `;
       }).join('');
+    }
+
+    // Filter reviewee dropdown by search text
+    function filterRevieweeDropdown() {
+      const searchInput = document.getElementById('revieweeSearchBulk');
+      const selectElement = document.getElementById('revieweeSelectBulk');
+      const searchText = (searchInput?.value || '').toLowerCase();
+      const options = selectElement.querySelectorAll('option');
+
+      options.forEach(option => {
+        if (option.value === '') {
+          option.style.display = 'block'; // Always show placeholder
+          return;
+        }
+        const emp = allEmployees.find(e => e.email === option.value);
+        const matchText = `${emp?.name || ''} ${emp?.department || ''} ${emp?.email || ''}`.toLowerCase();
+        option.style.display = matchText.includes(searchText) ? 'block' : 'none';
+      });
+    }
+
+    // Select all available reviewees
+    function selectAllAvailableReviewees() {
+      const selectElement = document.getElementById('revieweeSelectBulk');
+      const options = selectElement.querySelectorAll('option');
+
+      options.forEach(option => {
+        if (option.value && option.style.display !== 'none') {
+          bulkSelectedReviewees.add(option.value);
+        }
+      });
+
+      document.getElementById('revieweeSearchBulk').value = '';
+      filterRevieweeDropdown();
+      selectElement.value = '';
+      renderBulkSelectedReviewees();
+      filterAndUpdateBulkRevieweeSelect();
     }
 
     function applyFilters() {
@@ -964,7 +1126,48 @@
       document.getElementById('filterReviewee').value = '';
       document.getElementById('filterType').value = '';
       document.getElementById('filterStatus').value = '';
+      document.getElementById('groupByMode').value = 'none';
       applyFilters();
+    }
+
+    // Toggle detail report section
+    function toggleDetailReport() {
+      const section = document.getElementById('detailReportSection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+      if (section.style.display === 'block') {
+        renderDetailReport();
+      }
+    }
+
+    // Render detail report with lists of employees
+    function renderDetailReport() {
+      const reviewerEmails = new Set(allAssignments.map(a => a.reviewer_email));
+      const revieweeEmails = new Set(allAssignments.map(a => a.reviewee_email));
+
+      // Employees without reviewer
+      const noReviewerEmps = allEmployees.filter(emp => !revieweeEmails.has(emp.email));
+      const noReviewerHtml = noReviewerEmps.length === 0 
+        ? '<p style="color: #999;">Tất cả nhân viên đều có reviewer</p>'
+        : noReviewerEmps.map(emp => `
+          <div style="padding: 8px; border-bottom: 1px solid #eee;">
+            <strong>${emp.name}</strong> <br>
+            <small>${emp.email} | ${emp.department}</small>
+          </div>
+        `).join('');
+
+      // Employees without reviewee
+      const noRevieweeEmps = allEmployees.filter(emp => !reviewerEmails.has(emp.email));
+      const noRevieweeHtml = noRevieweeEmps.length === 0 
+        ? '<p style="color: #999;">Tất cả nhân viên đều có reviewee</p>'
+        : noRevieweeEmps.map(emp => `
+          <div style="padding: 8px; border-bottom: 1px solid #eee;">
+            <strong>${emp.name}</strong> <br>
+            <small>${emp.email} | ${emp.department}</small>
+          </div>
+        `).join('');
+
+      document.getElementById('noReviewerList').innerHTML = noReviewerHtml;
+      document.getElementById('noRevieweeList').innerHTML = noRevieweeHtml;
     }
 
     function renderTable() {
@@ -976,6 +1179,24 @@
         return;
       }
 
+      const groupMode = document.getElementById('groupByMode').value || 'none';
+
+      if (groupMode === 'none') {
+        // Render không nhóm
+        renderTableNormal(tbody);
+      } else if (groupMode === 'reviewer') {
+        // Render nhóm theo reviewer
+        renderTableGroupedByReviewer(tbody);
+      } else if (groupMode === 'reviewee') {
+        // Render nhóm theo reviewee
+        renderTableGroupedByReviewee(tbody);
+      }
+
+      updateBulkActions();
+    }
+
+    // Render table bình thường (không nhóm)
+    function renderTableNormal(tbody) {
       filteredAssignments.forEach((assignment, index) => {
         const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
         const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
@@ -1016,8 +1237,144 @@
         `;
         tbody.appendChild(row);
       });
+    }
 
-      updateBulkActions();
+    // Render table nhóm theo Reviewer
+    function renderTableGroupedByReviewer(tbody) {
+      const groups = {};
+      
+      filteredAssignments.forEach((assignment, index) => {
+        const key = assignment.reviewer_email;
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push({ assignment, index });
+      });
+
+      Object.keys(groups).sort().forEach(reviewerEmail => {
+        const reviewer = allEmployees.find(e => e.email === reviewerEmail);
+        
+        // Header row
+        const headerRow = document.createElement('tr');
+        headerRow.style.background = '#e3f2fd';
+        headerRow.style.fontWeight = 'bold';
+        headerRow.innerHTML = `
+          <td colspan="8" style="padding: 12px; border-left: 4px solid #2196F3;">
+            👤 ${reviewer ? reviewer.name : reviewerEmail} (${reviewer ? reviewer.department : '-'}) - ${groups[reviewerEmail].length} người được đánh giá
+          </td>
+        `;
+        tbody.appendChild(headerRow);
+
+        // Data rows
+        groups[reviewerEmail].forEach(({ assignment, index }) => {
+          const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <input type="checkbox" class="checkbox" 
+                ${selectedAssignments.has(index) ? 'checked' : ''}
+                onchange="toggleSelect(${index})">
+            </td>
+            <td style="padding-left: 30px;">
+              <strong>${reviewer ? reviewer.name : assignment.reviewer_email}</strong><br>
+              <small style="color: #999;">${assignment.reviewer_email}</small>
+            </td>
+            <td>${reviewer ? reviewer.department : '-'}</td>
+            <td>
+              <strong>${reviewee ? reviewee.name : assignment.reviewee_email}</strong><br>
+              <small style="color: #999;">${assignment.reviewee_email}</small>
+            </td>
+            <td>${reviewee ? reviewee.department : '-'}</td>
+            <td>
+              <span class="badge ${assignment.target_type === 'EMPLOYEE' ? 'badge-employee' : 'badge-manager'}">
+                ${assignment.target_type}
+              </span>
+            </td>
+            <td>
+              <span class="badge ${assignment.status === 'PENDING' ? 'badge-pending' : 'badge-completed'}">
+                ${assignment.status}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button onclick="editAssignment(${index})" class="btn btn-primary btn-sm">Sửa</button>
+                <button onclick="deleteAssignment(${index})" class="btn btn-danger btn-sm">Xóa</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+    }
+
+    // Render table nhóm theo Reviewee
+    function renderTableGroupedByReviewee(tbody) {
+      const groups = {};
+      
+      filteredAssignments.forEach((assignment, index) => {
+        const key = assignment.reviewee_email;
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push({ assignment, index });
+      });
+
+      Object.keys(groups).sort().forEach(revieweeEmail => {
+        const reviewee = allEmployees.find(e => e.email === revieweeEmail);
+        
+        // Header row
+        const headerRow = document.createElement('tr');
+        headerRow.style.background = '#f3e5f5';
+        headerRow.style.fontWeight = 'bold';
+        headerRow.innerHTML = `
+          <td colspan="8" style="padding: 12px; border-left: 4px solid #9C27B0;">
+            👥 ${reviewee ? reviewee.name : revieweeEmail} (${reviewee ? reviewee.department : '-'}) - Được ${groups[revieweeEmail].length} người đánh giá
+          </td>
+        `;
+        tbody.appendChild(headerRow);
+
+        // Data rows
+        groups[revieweeEmail].forEach(({ assignment, index }) => {
+          const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <input type="checkbox" class="checkbox" 
+                ${selectedAssignments.has(index) ? 'checked' : ''}
+                onchange="toggleSelect(${index})">
+            </td>
+            <td>
+              <strong>${reviewer ? reviewer.name : assignment.reviewer_email}</strong><br>
+              <small style="color: #999;">${assignment.reviewer_email}</small>
+            </td>
+            <td>${reviewer ? reviewer.department : '-'}</td>
+            <td style="padding-left: 30px;">
+              <strong>${reviewee ? reviewee.name : assignment.reviewee_email}</strong><br>
+              <small style="color: #999;">${assignment.reviewee_email}</small>
+            </td>
+            <td>${reviewee ? reviewee.department : '-'}</td>
+            <td>
+              <span class="badge ${assignment.target_type === 'EMPLOYEE' ? 'badge-employee' : 'badge-manager'}">
+                ${assignment.target_type}
+              </span>
+            </td>
+            <td>
+              <span class="badge ${assignment.status === 'PENDING' ? 'badge-pending' : 'badge-completed'}">
+                ${assignment.status}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button onclick="editAssignment(${index})" class="btn btn-primary btn-sm">Sửa</button>
+                <button onclick="deleteAssignment(${index})" class="btn btn-danger btn-sm">Xóa</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
     }
 
     function toggleSelect(index) {
@@ -1335,6 +1692,8 @@
     window.removeBulkReviewee = removeBulkReviewee;
     window.renderBulkSelectedReviewees = renderBulkSelectedReviewees;
     window.filterAndUpdateBulkRevieweeSelect = filterAndUpdateBulkRevieweeSelect;
+    window.toggleDetailReport = toggleDetailReport;
+    window.renderDetailReport = renderDetailReport;
 
     // Close modal when clicking outside
     window.onclick = function(event) {
