@@ -428,3 +428,113 @@ export const employeeLookup = onRequest(async (req, res) => {
     });
   }
 });
+
+/**
+ * API lấy tất cả employees (ADMIN only)
+ * GET /getAllEmployees
+ */
+export const getAllEmployees = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    const sheetsClient = new SheetsClient();
+    const employees = await sheetsClient.getAllEmployees();
+
+    res.json({
+      success: true,
+      employees: employees
+    });
+    
+  } catch (error: any) {
+    console.error('getAllEmployees: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * API lấy tất cả assignments (ADMIN only)
+ * GET /getAllAssignments
+ */
+export const getAllAssignments = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    const sheetsClient = new SheetsClient();
+    const assignments = await sheetsClient.getAllAssignments();
+
+    res.json({
+      success: true,
+      assignments: assignments
+    });
+    
+  } catch (error: any) {
+    console.error('getAllAssignments: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * API cập nhật toàn bộ assignments (ADMIN only)
+ * POST /updateAllAssignments
+ * Body: { assignments: Array<Assignment> }
+ */
+export const updateAllAssignments = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ success: false, error: "Method not allowed" });
+    return;
+  }
+
+  try {
+    const { assignments } = req.body;
+    
+    if (!assignments || !Array.isArray(assignments)) {
+      res.status(400).json({ 
+        success: false, 
+        error: "assignments array is required" 
+      });
+      return;
+    }
+
+    const sheetsClient = new SheetsClient();
+    await sheetsClient.updateAllAssignments(assignments);
+
+    res.json({
+      success: true,
+      message: "Assignments updated successfully",
+      count: assignments.length
+    });
+    
+  } catch (error: any) {
+    console.error('updateAllAssignments: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});

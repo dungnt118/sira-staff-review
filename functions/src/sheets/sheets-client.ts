@@ -1266,4 +1266,155 @@ export class SheetsClient {
       targets
     };
   }
+
+  /**
+   * Lấy tất cả employees (không filter)
+   */
+  async getAllEmployees(): Promise<Employee[]> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EMPLOYEES!A:G',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return [];
+
+      const headers = values[0];
+      const emailIndex = headers.findIndex(h => h && h.toLowerCase().includes('email'));
+      const idIndex = headers.findIndex(h => h && h.toLowerCase().includes('employee_id'));
+      const nameIndex = headers.findIndex(h => h && h.toLowerCase().includes('name'));
+      const deptIndex = headers.findIndex(h => h && h.toLowerCase().includes('department'));
+      const positionIndex = headers.findIndex(h => h && h.toLowerCase().includes('position'));
+      const statusIndex = headers.findIndex(h => h && h.toLowerCase().includes('status'));
+      const roleIndex = headers.findIndex(h => h && h.toLowerCase().includes('role'));
+
+      const employees: Employee[] = [];
+
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        if (row[emailIndex]) {
+          employees.push({
+            employee_id: row[idIndex] || '',
+            name: row[nameIndex] || '',
+            email: row[emailIndex] || '',
+            department: row[deptIndex] || '',
+            position: row[positionIndex] || '',
+            status: (statusIndex !== -1 ? row[statusIndex] : row[5]) || '',
+            role: (roleIndex !== -1 ? row[roleIndex] : '') || 'USER'
+          });
+        }
+      }
+
+      console.log(`getAllEmployees: Loaded ${employees.length} employees`);
+      return employees;
+    } catch (error: any) {
+      console.error('Error getting all employees:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy tất cả assignments (không filter)
+   */
+  async getAllAssignments(): Promise<any[]> {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:K',
+      });
+
+      const values = response.data.values;
+      if (!values || values.length < 2) return [];
+
+      const header = values[0].map((h: string) => (h || '').trim());
+      const headerLower = header.map(h => h.toLowerCase());
+      
+      const col = (...names: string[]) => {
+        for (const n of names) {
+          const idx = headerLower.indexOf(n.toLowerCase());
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+
+      const idx = {
+        reviewerEmail: col('reviewer_email'),
+        revieweeEmail: col('reviewee_email'),
+        targetType: col('target_type'),
+        status: col('status'),
+        period: col('period')
+      };
+
+      const assignments = [];
+
+      for (let i = 1; i < values.length; i++) {
+        const row = values[i];
+        const reviewerEmail = idx.reviewerEmail >= 0 ? (row[idx.reviewerEmail] || '').trim() : '';
+        const revieweeEmail = idx.revieweeEmail >= 0 ? (row[idx.revieweeEmail] || '').trim() : '';
+        const targetType = idx.targetType >= 0 ? (row[idx.targetType] || '').trim() : '';
+        const status = idx.status >= 0 ? (row[idx.status] || '').trim() : 'PENDING';
+
+        if (reviewerEmail && revieweeEmail && targetType) {
+          assignments.push({
+            reviewer_email: reviewerEmail,
+            reviewee_email: revieweeEmail,
+            target_type: targetType,
+            status: status,
+            period: idx.period >= 0 ? (row[idx.period] || '').trim() : ''
+          });
+        }
+      }
+
+      console.log(`getAllAssignments: Loaded ${assignments.length} assignments`);
+      return assignments;
+    } catch (error: any) {
+      console.error('Error getting all assignments:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cập nhật toàn bộ assignments sheet (clear và ghi lại)
+   */
+  async updateAllAssignments(assignments: any[]): Promise<void> {
+    try {
+      console.log(`updateAllAssignments: Updating ${assignments.length} assignments...`);
+
+      // Prepare rows: header + data
+      const header = ['reviewer_email', 'reviewee_email', 'target_type', 'status', 'period'];
+      const rows = [header];
+
+      for (const assignment of assignments) {
+        rows.push([
+          assignment.reviewer_email || '',
+          assignment.reviewee_email || '',
+          assignment.target_type || '',
+          assignment.status || 'PENDING',
+          assignment.period || ''
+        ]);
+      }
+
+      // Clear existing data (keep sheet, clear all)
+      await this.sheets.spreadsheets.values.clear({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:K',
+      });
+
+      // Write new data
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A1',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: rows
+        }
+      });
+
+      console.log(`updateAllAssignments: Successfully updated ${assignments.length} assignments`);
+    } catch (error: any) {
+      console.error('Error updating all assignments:', error);
+      throw error;
+    }
+  }
 }

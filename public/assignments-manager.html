@@ -1,0 +1,997 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Quản lý Assignments - Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .header h1 {
+      color: #333;
+      font-size: 24px;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #2196F3;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1976D2;
+    }
+
+    .btn-success {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #45a049;
+    }
+
+    .btn-danger {
+      background: #f44336;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #d32f2f;
+    }
+
+    .main-content {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #4CAF50;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: #f5f5f5;
+      padding: 15px 20px;
+      border-radius: 8px;
+      border-left: 4px solid #2196F3;
+    }
+
+    .stat-card h3 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .stat-card p {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .assignments-table-container {
+      overflow-x: auto;
+      margin-bottom: 20px;
+    }
+
+    .assignments-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .assignments-table th,
+    .assignments-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .assignments-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+      color: #333;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .assignments-table tbody tr:hover {
+      background: #f9f9f9;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .badge-employee {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .badge-manager {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .badge-pending {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+
+    .badge-completed {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      overflow: auto;
+    }
+
+    .modal-content {
+      background: white;
+      margin: 50px auto;
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 600px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .modal-header h2 {
+      color: #333;
+      font-size: 20px;
+    }
+
+    .close {
+      font-size: 28px;
+      font-weight: bold;
+      color: #aaa;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+      outline: none;
+      border-color: #2196F3;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c62828;
+    }
+
+    .success-message {
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      border-left: 4px solid #2e7d32;
+    }
+
+    .info-text {
+      color: #666;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .select-all-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .bulk-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    .bulk-actions span {
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 Quản lý Assignments</h1>
+      <div class="nav-buttons">
+        <a href="dashboard.html" class="btn btn-primary">← Dashboard</a>
+        <button onclick="logout()" class="btn btn-danger">Đăng xuất</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <p>Đang tải dữ liệu...</p>
+      </div>
+
+      <div id="content" style="display: none;">
+        <!-- Stats -->
+        <div class="stats">
+          <div class="stat-card">
+            <h3 id="totalAssignments">0</h3>
+            <p>Tổng số Assignments</p>
+          </div>
+          <div class="stat-card">
+            <h3 id="totalEmployees">0</h3>
+            <p>Nhân viên</p>
+          </div>
+          <div class="stat-card">
+            <h3 id="pendingCount">0</h3>
+            <p>Đang chờ</p>
+          </div>
+          <div class="stat-card">
+            <h3 id="completedCount">0</h3>
+            <p>Đã hoàn thành</p>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+          <div class="filter-group">
+            <label>Lọc theo Reviewer</label>
+            <select id="filterReviewer" onchange="applyFilters()">
+              <option value="">-- Tất cả --</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Lọc theo Reviewee</label>
+            <select id="filterReviewee" onchange="applyFilters()">
+              <option value="">-- Tất cả --</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Loại đánh giá</label>
+            <select id="filterType" onchange="applyFilters()">
+              <option value="">-- Tất cả --</option>
+              <option value="EMPLOYEE">Nhân viên</option>
+              <option value="MANAGER">Quản lý</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Trạng thái</label>
+            <select id="filterStatus" onchange="applyFilters()">
+              <option value="">-- Tất cả --</option>
+              <option value="PENDING">Đang chờ</option>
+              <option value="COMPLETED">Đã hoàn thành</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>&nbsp;</label>
+            <button onclick="resetFilters()" class="btn btn-primary">Đặt lại</button>
+          </div>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions" style="display: none;" id="bulkActions">
+          <span id="selectedCount">0 assignment đã chọn</span>
+          <button onclick="bulkDelete()" class="btn btn-danger btn-sm">Xóa</button>
+          <button onclick="bulkUpdateStatus('COMPLETED')" class="btn btn-success btn-sm">Đánh dấu hoàn thành</button>
+          <button onclick="bulkUpdateStatus('PENDING')" class="btn btn-primary btn-sm">Đánh dấu chờ</button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+          <button onclick="openAddModal()" class="btn btn-success">➕ Thêm Assignment</button>
+          <button onclick="saveAllChanges()" class="btn btn-primary">💾 Lưu tất cả thay đổi</button>
+          <button onclick="loadData()" class="btn btn-primary">🔄 Tải lại</button>
+        </div>
+
+        <!-- Table -->
+        <div class="assignments-table-container">
+          <table class="assignments-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" id="selectAll" class="checkbox" onchange="toggleSelectAll()">
+                </th>
+                <th style="width: 180px;">Reviewer</th>
+                <th style="width: 100px;">Phòng ban</th>
+                <th style="width: 180px;">Reviewee</th>
+                <th style="width: 100px;">Phòng ban</th>
+                <th style="width: 100px;">Loại ĐG</th>
+                <th style="width: 100px;">Trạng thái</th>
+                <th style="width: 150px;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="assignmentsTableBody">
+              <!-- Data will be populated here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div id="assignmentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Thêm Assignment</h2>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      
+      <div id="modalError" class="error-message" style="display: none;"></div>
+      
+      <form id="assignmentForm" onsubmit="saveAssignment(event)">
+        <div class="form-group">
+          <label>Reviewer (người đánh giá) *</label>
+          <select id="reviewerSelect" required>
+            <option value="">-- Chọn reviewer --</option>
+          </select>
+          <div class="info-text" id="reviewerInfo"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Reviewee (người được đánh giá) *</label>
+          <select id="revieweeSelect" required>
+            <option value="">-- Chọn reviewee --</option>
+          </select>
+          <div class="info-text" id="revieweeInfo"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Loại đánh giá *</label>
+          <select id="targetTypeSelect" required>
+            <option value="">-- Chọn loại --</option>
+            <option value="EMPLOYEE">Nhân viên (EMPLOYEE)</option>
+            <option value="MANAGER">Quản lý (MANAGER)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Trạng thái</label>
+          <select id="statusSelect">
+            <option value="PENDING">Đang chờ (PENDING)</option>
+            <option value="COMPLETED">Đã hoàn thành (COMPLETED)</option>
+          </select>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" onclick="closeModal()" class="btn btn-danger">Hủy</button>
+          <button type="submit" class="btn btn-success">Lưu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { API_BASE_URL } from './js/config.js';
+    window.API_BASE_URL = API_BASE_URL;
+  </script>
+
+  <script>
+    let allAssignments = [];
+    let allEmployees = [];
+    let filteredAssignments = [];
+    let editingIndex = -1;
+    let selectedAssignments = new Set();
+
+    // Load data on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      if (!user) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Check if user is admin
+      if (user.role !== 'ADMIN') {
+        alert('Bạn không có quyền truy cập trang này!');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      await loadData();
+    });
+
+    async function loadData() {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('content').style.display = 'none';
+
+        // Load employees and assignments in parallel
+        const [employeesRes, assignmentsRes] = await Promise.all([
+          fetch(`${window.API_BASE_URL}/getAllEmployees`),
+          fetch(`${window.API_BASE_URL}/getAllAssignments`)
+        ]);
+
+        if (!employeesRes.ok || !assignmentsRes.ok) {
+          throw new Error('Không thể tải dữ liệu');
+        }
+
+        const employeesData = await employeesRes.json();
+        const assignmentsData = await assignmentsRes.json();
+
+        allEmployees = employeesData.employees || [];
+        allAssignments = assignmentsData.assignments || [];
+        
+        console.log('Loaded:', allEmployees.length, 'employees,', allAssignments.length, 'assignments');
+
+        updateStats();
+        populateFilters();
+        populateSelects();
+        applyFilters();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+      } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Lỗi khi tải dữ liệu: ' + error.message);
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('totalAssignments').textContent = allAssignments.length;
+      document.getElementById('totalEmployees').textContent = allEmployees.length;
+      
+      const pending = allAssignments.filter(a => a.status === 'PENDING').length;
+      const completed = allAssignments.filter(a => a.status === 'COMPLETED').length;
+      
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('completedCount').textContent = completed;
+    }
+
+    function populateFilters() {
+      const reviewerSet = new Set();
+      const revieweeSet = new Set();
+
+      allAssignments.forEach(a => {
+        reviewerSet.add(a.reviewer_email);
+        revieweeSet.add(a.reviewee_email);
+      });
+
+      const reviewerSelect = document.getElementById('filterReviewer');
+      const revieweeSelect = document.getElementById('filterReviewee');
+
+      reviewerSelect.innerHTML = '<option value="">-- Tất cả --</option>';
+      revieweeSelect.innerHTML = '<option value="">-- Tất cả --</option>';
+
+      Array.from(reviewerSet).sort().forEach(email => {
+        const emp = allEmployees.find(e => e.email === email);
+        const name = emp ? emp.name : email;
+        reviewerSelect.innerHTML += `<option value="${email}">${name} (${email})</option>`;
+      });
+
+      Array.from(revieweeSet).sort().forEach(email => {
+        const emp = allEmployees.find(e => e.email === email);
+        const name = emp ? emp.name : email;
+        revieweeSelect.innerHTML += `<option value="${email}">${name} (${email})</option>`;
+      });
+    }
+
+    function populateSelects() {
+      const reviewerSelect = document.getElementById('reviewerSelect');
+      const revieweeSelect = document.getElementById('revieweeSelect');
+
+      reviewerSelect.innerHTML = '<option value="">-- Chọn reviewer --</option>';
+      revieweeSelect.innerHTML = '<option value="">-- Chọn reviewee --</option>';
+
+      allEmployees.forEach(emp => {
+        const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
+        reviewerSelect.innerHTML += option;
+        revieweeSelect.innerHTML += option;
+      });
+
+      // Add event listeners to show info
+      reviewerSelect.addEventListener('change', (e) => {
+        const emp = allEmployees.find(emp => emp.email === e.target.value);
+        document.getElementById('reviewerInfo').textContent = emp ? 
+          `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
+      });
+
+      revieweeSelect.addEventListener('change', (e) => {
+        const emp = allEmployees.find(emp => emp.email === e.target.value);
+        document.getElementById('revieweeInfo').textContent = emp ? 
+          `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
+      });
+    }
+
+    function applyFilters() {
+      const reviewerFilter = document.getElementById('filterReviewer').value;
+      const revieweeFilter = document.getElementById('filterReviewee').value;
+      const typeFilter = document.getElementById('filterType').value;
+      const statusFilter = document.getElementById('filterStatus').value;
+
+      filteredAssignments = allAssignments.filter(a => {
+        if (reviewerFilter && a.reviewer_email !== reviewerFilter) return false;
+        if (revieweeFilter && a.reviewee_email !== revieweeFilter) return false;
+        if (typeFilter && a.target_type !== typeFilter) return false;
+        if (statusFilter && a.status !== statusFilter) return false;
+        return true;
+      });
+
+      renderTable();
+    }
+
+    function resetFilters() {
+      document.getElementById('filterReviewer').value = '';
+      document.getElementById('filterReviewee').value = '';
+      document.getElementById('filterType').value = '';
+      document.getElementById('filterStatus').value = '';
+      applyFilters();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('assignmentsTableBody');
+      tbody.innerHTML = '';
+
+      if (filteredAssignments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #999;">Không có assignment nào</td></tr>';
+        return;
+      }
+
+      filteredAssignments.forEach((assignment, index) => {
+        const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
+        const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            <input type="checkbox" class="checkbox" 
+              ${selectedAssignments.has(index) ? 'checked' : ''}
+              onchange="toggleSelect(${index})">
+          </td>
+          <td>
+            <strong>${reviewer ? reviewer.name : assignment.reviewer_email}</strong><br>
+            <small style="color: #999;">${assignment.reviewer_email}</small>
+          </td>
+          <td>${reviewer ? reviewer.department : '-'}</td>
+          <td>
+            <strong>${reviewee ? reviewee.name : assignment.reviewee_email}</strong><br>
+            <small style="color: #999;">${assignment.reviewee_email}</small>
+          </td>
+          <td>${reviewee ? reviewee.department : '-'}</td>
+          <td>
+            <span class="badge ${assignment.target_type === 'EMPLOYEE' ? 'badge-employee' : 'badge-manager'}">
+              ${assignment.target_type}
+            </span>
+          </td>
+          <td>
+            <span class="badge ${assignment.status === 'PENDING' ? 'badge-pending' : 'badge-completed'}">
+              ${assignment.status}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button onclick="editAssignment(${index})" class="btn btn-primary btn-sm">Sửa</button>
+              <button onclick="deleteAssignment(${index})" class="btn btn-danger btn-sm">Xóa</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      updateBulkActions();
+    }
+
+    function toggleSelect(index) {
+      if (selectedAssignments.has(index)) {
+        selectedAssignments.delete(index);
+      } else {
+        selectedAssignments.add(index);
+      }
+      updateBulkActions();
+    }
+
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      selectedAssignments.clear();
+      
+      if (checked) {
+        filteredAssignments.forEach((_, index) => selectedAssignments.add(index));
+      }
+      
+      renderTable();
+    }
+
+    function updateBulkActions() {
+      const bulkActions = document.getElementById('bulkActions');
+      const count = selectedAssignments.size;
+      
+      if (count > 0) {
+        bulkActions.style.display = 'flex';
+        document.getElementById('selectedCount').textContent = `${count} assignment đã chọn`;
+      } else {
+        bulkActions.style.display = 'none';
+      }
+    }
+
+    function openAddModal() {
+      editingIndex = -1;
+      document.getElementById('modalTitle').textContent = 'Thêm Assignment';
+      document.getElementById('assignmentForm').reset();
+      document.getElementById('reviewerInfo').textContent = '';
+      document.getElementById('revieweeInfo').textContent = '';
+      document.getElementById('modalError').style.display = 'none';
+      document.getElementById('assignmentModal').style.display = 'block';
+    }
+
+    function editAssignment(index) {
+      editingIndex = index;
+      const assignment = filteredAssignments[index];
+      
+      document.getElementById('modalTitle').textContent = 'Sửa Assignment';
+      document.getElementById('reviewerSelect').value = assignment.reviewer_email;
+      document.getElementById('revieweeSelect').value = assignment.reviewee_email;
+      document.getElementById('targetTypeSelect').value = assignment.target_type;
+      document.getElementById('statusSelect').value = assignment.status;
+      
+      // Trigger change events to show info
+      document.getElementById('reviewerSelect').dispatchEvent(new Event('change'));
+      document.getElementById('revieweeSelect').dispatchEvent(new Event('change'));
+      
+      document.getElementById('modalError').style.display = 'none';
+      document.getElementById('assignmentModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('assignmentModal').style.display = 'none';
+    }
+
+    function saveAssignment(event) {
+      event.preventDefault();
+      
+      const reviewerEmail = document.getElementById('reviewerSelect').value;
+      const revieweeEmail = document.getElementById('revieweeSelect').value;
+      const targetType = document.getElementById('targetTypeSelect').value;
+      const status = document.getElementById('statusSelect').value;
+
+      // Validation
+      if (reviewerEmail === revieweeEmail) {
+        document.getElementById('modalError').textContent = 'Reviewer và Reviewee không được trùng nhau!';
+        document.getElementById('modalError').style.display = 'block';
+        return;
+      }
+
+      const newAssignment = {
+        reviewer_email: reviewerEmail,
+        reviewee_email: revieweeEmail,
+        target_type: targetType,
+        status: status
+      };
+
+      if (editingIndex === -1) {
+        // Check duplicate
+        const isDuplicate = allAssignments.some(a => 
+          a.reviewer_email === reviewerEmail &&
+          a.reviewee_email === revieweeEmail &&
+          a.target_type === targetType
+        );
+
+        if (isDuplicate) {
+          document.getElementById('modalError').textContent = 'Assignment này đã tồn tại!';
+          document.getElementById('modalError').style.display = 'block';
+          return;
+        }
+
+        allAssignments.push(newAssignment);
+      } else {
+        // Find and update in allAssignments
+        const originalAssignment = filteredAssignments[editingIndex];
+        const indexInAll = allAssignments.findIndex(a => 
+          a.reviewer_email === originalAssignment.reviewer_email &&
+          a.reviewee_email === originalAssignment.reviewee_email &&
+          a.target_type === originalAssignment.target_type
+        );
+        
+        if (indexInAll !== -1) {
+          allAssignments[indexInAll] = newAssignment;
+        }
+      }
+
+      closeModal();
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function deleteAssignment(index) {
+      if (!confirm('Bạn có chắc muốn xóa assignment này?')) return;
+
+      const assignment = filteredAssignments[index];
+      const indexInAll = allAssignments.findIndex(a => 
+        a.reviewer_email === assignment.reviewer_email &&
+        a.reviewee_email === assignment.reviewee_email &&
+        a.target_type === assignment.target_type
+      );
+
+      if (indexInAll !== -1) {
+        allAssignments.splice(indexInAll, 1);
+      }
+
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function bulkDelete() {
+      if (!confirm(`Bạn có chắc muốn xóa ${selectedAssignments.size} assignment đã chọn?`)) return;
+
+      const toDelete = Array.from(selectedAssignments).map(i => filteredAssignments[i]);
+      
+      toDelete.forEach(assignment => {
+        const indexInAll = allAssignments.findIndex(a => 
+          a.reviewer_email === assignment.reviewer_email &&
+          a.reviewee_email === assignment.reviewee_email &&
+          a.target_type === assignment.target_type
+        );
+        
+        if (indexInAll !== -1) {
+          allAssignments.splice(indexInAll, 1);
+        }
+      });
+
+      selectedAssignments.clear();
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function bulkUpdateStatus(newStatus) {
+      if (!confirm(`Cập nhật trạng thái ${selectedAssignments.size} assignment thành ${newStatus}?`)) return;
+
+      Array.from(selectedAssignments).forEach(index => {
+        const assignment = filteredAssignments[index];
+        const indexInAll = allAssignments.findIndex(a => 
+          a.reviewer_email === assignment.reviewer_email &&
+          a.reviewee_email === assignment.reviewee_email &&
+          a.target_type === assignment.target_type
+        );
+        
+        if (indexInAll !== -1) {
+          allAssignments[indexInAll].status = newStatus;
+        }
+      });
+
+      selectedAssignments.clear();
+      updateStats();
+      applyFilters();
+    }
+
+    async function saveAllChanges() {
+      if (!confirm('Lưu tất cả thay đổi vào Google Sheets?')) return;
+
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('content').style.display = 'none';
+
+        const response = await fetch(`${window.API_BASE_URL}/updateAllAssignments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            assignments: allAssignments
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Không thể lưu dữ liệu');
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('✅ Đã lưu thành công!');
+          await loadData();
+        } else {
+          throw new Error(data.error || 'Lỗi không xác định');
+        }
+      } catch (error) {
+        console.error('Error saving:', error);
+        alert('❌ Lỗi khi lưu: ' + error.message);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+      }
+    }
+
+    function logout() {
+      if (confirm('Bạn có chắc muốn đăng xuất?')) {
+        localStorage.removeItem('currentUser');
+        window.location.href = 'index.html';
+      }
+    }
+
+    // Make functions available globally
+    window.loadData = loadData;
+    window.applyFilters = applyFilters;
+    window.resetFilters = resetFilters;
+    window.toggleSelect = toggleSelect;
+    window.toggleSelectAll = toggleSelectAll;
+    window.openAddModal = openAddModal;
+    window.editAssignment = editAssignment;
+    window.deleteAssignment = deleteAssignment;
+    window.closeModal = closeModal;
+    window.saveAssignment = saveAssignment;
+    window.bulkDelete = bulkDelete;
+    window.bulkUpdateStatus = bulkUpdateStatus;
+    window.saveAllChanges = saveAllChanges;
+    window.logout = logout;
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('assignmentModal');
+      if (event.target === modal) {
+        closeModal();
+      }
+    };
+  </script>
+</body>
+</html>

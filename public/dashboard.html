@@ -303,6 +303,8 @@
     <h1>📋 Dashboard - Nhiệm vụ đánh giá</h1>
     <div class="nav-buttons">
       <a href="welcome.html" class="nav-btn">🏠 Trang chủ</a>
+      <a href="reports.html" class="nav-btn" id="reportsLink" style="display: none;">📊 Báo cáo</a>
+      <a href="assignments-manager.html" class="nav-btn" id="assignmentsLink" style="display: none;">🎯 Quản lý Assignments</a>
       <button class="nav-btn logout" onclick="logout()">🚪 Đăng xuất</button>
     </div>
   </div>
@@ -360,6 +362,14 @@
       return JSON.parse(savedUser);
     }
 
+    // Show admin links if user is admin
+    function showAdminLinks(userData) {
+      if (userData && userData.auth && userData.auth.role === 'ADMIN') {
+        document.getElementById('reportsLink').style.display = 'inline-block';
+        document.getElementById('assignmentsLink').style.display = 'inline-block';
+      }
+    }
+
     // Đăng xuất
     window.logout = async function() {
       if (confirm('Bạn có chắc muốn đăng xuất?')) {
@@ -378,6 +388,9 @@
     async function loadAssignments() {
       const userData = checkAuth();
       if (!userData) return;
+
+      // Show admin links if applicable
+      showAdminLinks(userData);
 
       try {
         document.getElementById('loading').style.display = 'block';
