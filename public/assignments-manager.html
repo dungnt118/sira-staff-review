@@ -531,10 +531,8 @@
     </div>
   </div>
 
-  <script type="module">
-    import { API_BASE_URL } from './js/config.js';
-    window.API_BASE_URL = API_BASE_URL;
-  </script>
+  <!-- Load config first -->
+  <script src="js/config.js"></script>
 
   <script>
     let allAssignments = [];
@@ -545,14 +543,22 @@
 
     // Load data on page load
     window.addEventListener('DOMContentLoaded', async () => {
+      // Wait for SIRA_API to be available
+      if (!window.SIRA_API) {
+        console.error('SIRA_API not loaded!');
+        alert('Lỗi: Không thể tải cấu hình hệ thống');
+        return;
+      }
+
       const user = JSON.parse(localStorage.getItem('currentUser'));
       if (!user) {
         window.location.href = 'index.html';
         return;
       }
 
-      // Check if user is admin
-      if (user.role !== 'ADMIN') {
+      // Check if user is admin - role có thể ở user.employee.role hoặc user.auth.role
+      const userRole = user?.employee?.role || user?.auth?.role || user?.role || 'USER';
+      if (userRole !== 'ADMIN') {
         alert('Bạn không có quyền truy cập trang này!');
         window.location.href = 'dashboard.html';
         return;
@@ -566,18 +572,20 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('content').style.display = 'none';
 
-        // Load employees and assignments in parallel
-        const [employeesRes, assignmentsRes] = await Promise.all([
-          fetch(`${window.API_BASE_URL}/getAllEmployees`),
-          fetch(`${window.API_BASE_URL}/getAllAssignments`)
+        // Debug: Check if SIRA_API methods exist
+        console.log('SIRA_API:', window.SIRA_API);
+        console.log('getAllEmployees exists:', typeof window.SIRA_API?.getAllEmployees);
+        console.log('getAllAssignments exists:', typeof window.SIRA_API?.getAllAssignments);
+
+        // Load employees and assignments in parallel using SIRA_API
+        const [employeesData, assignmentsData] = await Promise.all([
+          window.SIRA_API.getAllEmployees(),
+          window.SIRA_API.getAllAssignments()
         ]);
 
-        if (!employeesRes.ok || !assignmentsRes.ok) {
+        if (!employeesData.success || !assignmentsData.success) {
           throw new Error('Không thể tải dữ liệu');
         }
-
-        const employeesData = await employeesRes.json();
-        const assignmentsData = await assignmentsRes.json();
 
         allEmployees = employeesData.employees || [];
         allAssignments = assignmentsData.assignments || [];
@@ -932,21 +940,8 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('content').style.display = 'none';
 
-        const response = await fetch(`${window.API_BASE_URL}/updateAllAssignments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            assignments: allAssignments
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Không thể lưu dữ liệu');
-        }
-
-        const data = await response.json();
+        // Use SIRA_API instead of direct fetch
+        const data = await window.SIRA_API.updateAllAssignments(allAssignments);
         
         if (data.success) {
           alert('✅ Đã lưu thành công!');

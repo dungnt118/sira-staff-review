@@ -15,7 +15,10 @@ window.SIRA_CONFIG = {
     SAVE_EVALUATION: '/saveEvaluation',
     GET_EVALUATION: '/getEvaluation',
     GET_REPORT_DATA: '/getReportData',
-    GET_PERSON_REPORT: '/getPersonReport'
+    GET_PERSON_REPORT: '/getPersonReport',
+    GET_ALL_EMPLOYEES: '/getAllEmployees',
+    GET_ALL_ASSIGNMENTS: '/getAllAssignments',
+    UPDATE_ALL_ASSIGNMENTS: '/updateAllAssignments'
   },
 
   // Firebase Config
@@ -62,6 +65,57 @@ window.SIRA_API = {
     const response = await fetch(
       this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_MY_ASSIGNMENTS) +
         `?reviewer_email=${encodeURIComponent(reviewerEmail)}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Alias for backward compatibility
+  getAssignments: async function(reviewerEmail) {
+    return this.getMyAssignments(reviewerEmail);
+  },
+
+  // Lấy tất cả nhân viên (ADMIN only)
+  getAllEmployees: async function() {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_ALL_EMPLOYEES)
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Lấy tất cả assignments (ADMIN only)
+  getAllAssignments: async function() {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.GET_ALL_ASSIGNMENTS)
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // Cập nhật tất cả assignments (ADMIN only)
+  updateAllAssignments: async function(assignments) {
+    const response = await fetch(
+      this.getUrl(window.SIRA_CONFIG.ENDPOINTS.UPDATE_ALL_ASSIGNMENTS),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ assignments })
+      }
     );
     
     if (!response.ok) {

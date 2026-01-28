@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test SIRA API</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1000px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 5px;
+      border-left: 4px solid #2196F3;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #2196F3;
+    }
+    pre {
+      background: #fff;
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+      border: 1px solid #ddd;
+      font-size: 12px;
+    }
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #1976D2;
+    }
+    .success {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Test SIRA API</h1>
+    
+    <div class="test-section">
+      <h3>1. Check SIRA_CONFIG</h3>
+      <div id="config-result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>2. Check SIRA_API Object</h3>
+      <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>3. Test API Methods</h3>
+      <button onclick="testGetAllEmployees()">Test getAllEmployees()</button>
+      <button onclick="testGetAllAssignments()">Test getAllAssignments()</button>
+      <div id="test-result" class="result" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Load config -->
+  <script src="js/config.js"></script>
+
+  <script>
+    // Test 1: Check SIRA_CONFIG
+    function checkConfig() {
+      const resultDiv = document.getElementById('config-result');
+      if (window.SIRA_CONFIG) {
+        resultDiv.innerHTML = `
+          <p class="success">✓ SIRA_CONFIG loaded</p>
+          <pre>${JSON.stringify(window.SIRA_CONFIG, null, 2)}</pre>
+        `;
+      } else {
+        resultDiv.innerHTML = '<p class="error">✗ SIRA_CONFIG not found</p>';
+      }
+    }
+
+    // Test 2: Check SIRA_API
+    function checkAPI() {
+      const resultDiv = document.getElementById('api-result');
+      if (window.SIRA_API) {
+        const methods = Object.keys(window.SIRA_API);
+        resultDiv.innerHTML = `
+          <p class="success">✓ SIRA_API loaded</p>
+          <p><strong>Available methods (${methods.length}):</strong></p>
+          <pre>${methods.join('\n')}</pre>
+          <p><strong>Method types:</strong></p>
+          <pre>${methods.map(m => `${m}: ${typeof window.SIRA_API[m]}`).join('\n')}</pre>
+        `;
+      } else {
+        resultDiv.innerHTML = '<p class="error">✗ SIRA_API not found</p>';
+      }
+    }
+
+    // Test 3: Test getAllEmployees
+    async function testGetAllEmployees() {
+      const resultDiv = document.getElementById('test-result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<p>⏳ Testing getAllEmployees()...</p>';
+
+      try {
+        if (typeof window.SIRA_API.getAllEmployees !== 'function') {
+          throw new Error('getAllEmployees is not a function! Type: ' + typeof window.SIRA_API.getAllEmployees);
+        }
+
+        const data = await window.SIRA_API.getAllEmployees();
+        resultDiv.innerHTML = `
+          <p class="success">✓ getAllEmployees() SUCCESS</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">✗ getAllEmployees() FAILED</p>
+          <pre>${error.message}\n${error.stack}</pre>
+        `;
+      }
+    }
+
+    // Test 4: Test getAllAssignments
+    async function testGetAllAssignments() {
+      const resultDiv = document.getElementById('test-result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<p>⏳ Testing getAllAssignments()...</p>';
+
+      try {
+        if (typeof window.SIRA_API.getAllAssignments !== 'function') {
+          throw new Error('getAllAssignments is not a function! Type: ' + typeof window.SIRA_API.getAllAssignments);
+        }
+
+        const data = await window.SIRA_API.getAllAssignments();
+        resultDiv.innerHTML = `
+          <p class="success">✓ getAllAssignments() SUCCESS</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">✗ getAllAssignments() FAILED</p>
+          <pre>${error.message}\n${error.stack}</pre>
+        `;
+      }
+    }
+
+    // Auto-run checks on load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkConfig();
+      checkAPI();
+    });
+  </script>
+</body>
+</html>

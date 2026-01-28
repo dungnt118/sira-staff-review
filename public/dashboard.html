@@ -364,7 +364,9 @@
 
     // Show admin links if user is admin
     function showAdminLinks(userData) {
-      if (userData && userData.auth && userData.auth.role === 'ADMIN') {
+      // Role được lưu trong userData.employee.role
+      const userRole = userData?.employee?.role || userData?.auth?.role || 'USER';
+      if (userRole === 'ADMIN') {
         document.getElementById('reportsLink').style.display = 'inline-block';
         document.getElementById('assignmentsLink').style.display = 'inline-block';
       }

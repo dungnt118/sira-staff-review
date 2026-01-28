@@ -242,6 +242,7 @@
       <div class="header-right">
         <button class="btn btn-primary" onclick="location.href='index.html'">🏠 Trang chủ</button>
         <button class="btn btn-admin hidden" id="adminReportBtn" onclick="location.href='reports.html'">📊 Xem báo cáo</button>
+        <button class="btn btn-admin hidden" id="adminAssignmentsBtn" onclick="location.href='assignments-manager.html'">🎯 Quản lý Assignments</button>
         <button class="btn btn-danger" onclick="logout()">🚪 Đăng xuất</button>
       </div>
     </div>
@@ -314,12 +315,15 @@
 
     function showAdminButtonIfNeeded(userData) {
       const role = userData?.employee?.role || sessionStorage.getItem('userRole') || 'USER';
-      const btn = document.getElementById('adminReportBtn');
-      if (!btn) return;
+      const reportBtn = document.getElementById('adminReportBtn');
+      const assignmentsBtn = document.getElementById('adminAssignmentsBtn');
+      
       if (role.toUpperCase() === 'ADMIN') {
-        btn.classList.remove('hidden');
+        if (reportBtn) reportBtn.classList.remove('hidden');
+        if (assignmentsBtn) assignmentsBtn.classList.remove('hidden');
       } else {
-        btn.classList.add('hidden');
+        if (reportBtn) reportBtn.classList.add('hidden');
+        if (assignmentsBtn) assignmentsBtn.classList.add('hidden');
       }
     }
 
