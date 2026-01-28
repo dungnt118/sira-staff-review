@@ -363,6 +363,69 @@
       color: #666;
       font-size: 14px;
     }
+
+    .selected-reviewees-list {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .selected-reviewees-list h4 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .selected-reviewee-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .selected-reviewee-info {
+      flex: 1;
+    }
+
+    .selected-reviewee-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .selected-reviewee-email {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .selected-reviewee-remove {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+
+    .selected-reviewee-remove:hover {
+      background: #d32f2f;
+    }
+
+    .empty-reviewees {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -490,42 +553,79 @@
       <div id="modalError" class="error-message" style="display: none;"></div>
       
       <form id="assignmentForm" onsubmit="saveAssignment(event)">
-        <div class="form-group">
-          <label>Reviewer (người đánh giá) *</label>
-          <select id="reviewerSelect" required>
-            <option value="">-- Chọn reviewer --</option>
-          </select>
-          <div class="info-text" id="reviewerInfo"></div>
+        <div id="singleMode" style="display: none;">
+          <!-- Single mode: edit existing -->
+          <div class="form-group">
+            <label>Reviewer (người đánh giá) *</label>
+            <select id="reviewerSelectSingle" required>
+              <option value="">-- Chọn reviewer --</option>
+            </select>
+            <div class="info-text" id="reviewerInfoSingle"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Reviewee (người được đánh giá) *</label>
+            <select id="revieweeSelectSingle" required>
+              <option value="">-- Chọn reviewee --</option>
+            </select>
+            <div class="info-text" id="revieweeInfoSingle"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Loại đánh giá *</label>
+            <select id="targetTypeSelectSingle" required>
+              <option value="">-- Chọn loại --</option>
+              <option value="EMPLOYEE">Nhân viên (EMPLOYEE)</option>
+              <option value="MANAGER">Quản lý (MANAGER)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Trạng thái</label>
+            <select id="statusSelectSingle">
+              <option value="PENDING">Đang chờ (PENDING)</option>
+              <option value="COMPLETED">Đã hoàn thành (COMPLETED)</option>
+            </select>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Reviewee (người được đánh giá) *</label>
-          <select id="revieweeSelect" required>
-            <option value="">-- Chọn reviewee --</option>
-          </select>
-          <div class="info-text" id="revieweeInfo"></div>
-        </div>
+        <div id="bulkMode">
+          <!-- Bulk mode: add multiple reviewees -->
+          <div class="form-group">
+            <label>Reviewer (người đánh giá) *</label>
+            <select id="reviewerSelectBulk" required onchange="onBulkReviewerChange()">
+              <option value="">-- Chọn reviewer --</option>
+            </select>
+            <div class="info-text" id="reviewerInfoBulk"></div>
+          </div>
 
-        <div class="form-group">
-          <label>Loại đánh giá *</label>
-          <select id="targetTypeSelect" required>
-            <option value="">-- Chọn loại --</option>
-            <option value="EMPLOYEE">Nhân viên (EMPLOYEE)</option>
-            <option value="MANAGER">Quản lý (MANAGER)</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label>Loại đánh giá *</label>
+            <select id="targetTypeSelectBulk" required onchange="onBulkTargetTypeChange()">
+              <option value="">-- Chọn loại --</option>
+              <option value="EMPLOYEE">Nhân viên (EMPLOYEE)</option>
+              <option value="MANAGER">Quản lý (MANAGER)</option>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label>Trạng thái</label>
-          <select id="statusSelect">
-            <option value="PENDING">Đang chờ (PENDING)</option>
-            <option value="COMPLETED">Đã hoàn thành (COMPLETED)</option>
-          </select>
+          <div class="form-group">
+            <label>Chọn Reviewee (người được đánh giá) *</label>
+            <select id="revieweeSelectBulk" onchange="onBulkRevieweeSelect()">
+              <option value="">-- Chọn reviewee để thêm --</option>
+            </select>
+            <div class="info-text">Click vào dropdown để chọn nhiều reviewee</div>
+          </div>
+
+          <!-- Selected reviewees list -->
+          <div class="selected-reviewees-list" id="selectedRevieweesList" style="display: none;">
+            <h4 id="selectedRevieweesCount">0 Reviewee đã chọn</h4>
+            <div id="selectedRevieweesContainer"></div>
+          </div>
         </div>
 
         <div class="form-actions">
           <button type="button" onclick="closeModal()" class="btn btn-danger">Hủy</button>
-          <button type="submit" class="btn btn-success">Lưu</button>
+          <button type="submit" class="btn btn-success" id="submitBtn">Lưu</button>
         </div>
       </form>
     </div>
@@ -540,6 +640,11 @@
     let filteredAssignments = [];
     let editingIndex = -1;
     let selectedAssignments = new Set();
+    
+    // For bulk add mode
+    let bulkSelectedReviewer = '';
+    let bulkSelectedTargetType = '';
+    let bulkSelectedReviewees = new Set();
 
     // Load data on page load
     window.addEventListener('DOMContentLoaded', async () => {
@@ -645,30 +750,145 @@
     }
 
     function populateSelects() {
-      const reviewerSelect = document.getElementById('reviewerSelect');
-      const revieweeSelect = document.getElementById('revieweeSelect');
+      // Populate single mode selects (for edit)
+      const reviewerSelectSingle = document.getElementById('reviewerSelectSingle');
+      const revieweeSelectSingle = document.getElementById('revieweeSelectSingle');
+      
+      // Populate bulk mode selects
+      const reviewerSelectBulk = document.getElementById('reviewerSelectBulk');
+      const revieweeSelectBulk = document.getElementById('revieweeSelectBulk');
 
-      reviewerSelect.innerHTML = '<option value="">-- Chọn reviewer --</option>';
-      revieweeSelect.innerHTML = '<option value="">-- Chọn reviewee --</option>';
-
-      allEmployees.forEach(emp => {
-        const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
-        reviewerSelect.innerHTML += option;
-        revieweeSelect.innerHTML += option;
+      [reviewerSelectSingle, reviewerSelectBulk].forEach(select => {
+        select.innerHTML = '<option value="">-- Chọn reviewer --</option>';
+        allEmployees.forEach(emp => {
+          const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
+          select.innerHTML += option;
+        });
       });
 
-      // Add event listeners to show info
-      reviewerSelect.addEventListener('change', (e) => {
+      [revieweeSelectSingle, revieweeSelectBulk].forEach(select => {
+        select.innerHTML = '<option value="">-- Chọn reviewee --</option>';
+        allEmployees.forEach(emp => {
+          const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
+          select.innerHTML += option;
+        });
+      });
+
+      // Add event listeners for single mode
+      reviewerSelectSingle.addEventListener('change', (e) => {
         const emp = allEmployees.find(emp => emp.email === e.target.value);
-        document.getElementById('reviewerInfo').textContent = emp ? 
+        document.getElementById('reviewerInfoSingle').textContent = emp ? 
           `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
       });
 
-      revieweeSelect.addEventListener('change', (e) => {
+      revieweeSelectSingle.addEventListener('change', (e) => {
         const emp = allEmployees.find(emp => emp.email === e.target.value);
-        document.getElementById('revieweeInfo').textContent = emp ? 
+        document.getElementById('revieweeInfoSingle').textContent = emp ? 
           `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
       });
+
+      // Add event listeners for bulk mode
+      reviewerSelectBulk.addEventListener('change', onBulkReviewerChange);
+    }
+
+    // Bulk mode: when reviewer changes
+    function onBulkReviewerChange() {
+      const reviewer = document.getElementById('reviewerSelectBulk').value;
+      if (!reviewer) return;
+      
+      bulkSelectedReviewer = reviewer;
+      const emp = allEmployees.find(e => e.email === reviewer);
+      document.getElementById('reviewerInfoBulk').textContent = emp ? 
+        `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
+      
+      // Update reviewee dropdown when target type is also selected
+      onBulkTargetTypeChange();
+    }
+
+    // Bulk mode: when target type changes
+    function onBulkTargetTypeChange() {
+      bulkSelectedTargetType = document.getElementById('targetTypeSelectBulk').value;
+      filterAndUpdateBulkRevieweeSelect();
+    }
+
+    // Filter reviewee dropdown for bulk mode
+    function filterAndUpdateBulkRevieweeSelect() {
+      const reviewer = document.getElementById('reviewerSelectBulk').value;
+      const targetType = document.getElementById('targetTypeSelectBulk').value;
+      const revieweeSelectBulk = document.getElementById('revieweeSelectBulk');
+
+      revieweeSelectBulk.innerHTML = '<option value="">-- Chọn reviewee để thêm --</option>';
+
+      const availableReviewees = allEmployees.filter(emp => {
+        // Exclude self
+        if (emp.email === reviewer) return false;
+        
+        // Exclude already selected
+        if (bulkSelectedReviewees.has(emp.email)) return false;
+        
+        // Exclude if already has assignment with this reviewer + target type
+        const hasDuplicate = allAssignments.some(a =>
+          a.reviewer_email === reviewer &&
+          a.reviewee_email === emp.email &&
+          a.target_type === targetType
+        );
+        if (hasDuplicate) return false;
+        
+        return true;
+      });
+
+      availableReviewees.forEach(emp => {
+        const option = `<option value="${emp.email}">${emp.name} - ${emp.department}</option>`;
+        revieweeSelectBulk.innerHTML += option;
+      });
+    }
+
+    // Bulk mode: add reviewee to list
+    function onBulkRevieweeSelect() {
+      const email = document.getElementById('revieweeSelectBulk').value;
+      if (!email) return;
+      
+      bulkSelectedReviewees.add(email);
+      document.getElementById('revieweeSelectBulk').value = '';
+      
+      renderBulkSelectedReviewees();
+      filterAndUpdateBulkRevieweeSelect();
+    }
+
+    // Bulk mode: remove reviewee from list
+    function removeBulkReviewee(email) {
+      bulkSelectedReviewees.delete(email);
+      renderBulkSelectedReviewees();
+      filterAndUpdateBulkRevieweeSelect();
+    }
+
+    // Bulk mode: render selected reviewees list
+    function renderBulkSelectedReviewees() {
+      const list = document.getElementById('selectedRevieweesList');
+      const count = document.getElementById('selectedRevieweesCount');
+      const container = document.getElementById('selectedRevieweesContainer');
+
+      const selectedCount = bulkSelectedReviewees.size;
+      count.textContent = `${selectedCount} Reviewee đã chọn`;
+
+      if (selectedCount === 0) {
+        list.style.display = 'none';
+        return;
+      }
+
+      list.style.display = 'block';
+      container.innerHTML = Array.from(bulkSelectedReviewees).map(email => {
+        const emp = allEmployees.find(e => e.email === email);
+        return `
+          <div class="selected-reviewee-item">
+            <div class="selected-reviewee-info">
+              <div class="selected-reviewee-name">${emp?.name || email}</div>
+              <div class="selected-reviewee-email">${email}</div>
+            </div>
+            <button type="button" class="selected-reviewee-remove" onclick="removeBulkReviewee('${email}')">✕</button>
+          </div>
+        `;
+      }).join('');
     }
 
     function applyFilters() {
@@ -784,11 +1004,23 @@
     function openAddModal() {
       editingIndex = -1;
       document.getElementById('modalTitle').textContent = 'Thêm Assignment';
+      
+      // Show bulk mode (multi-select)
+      document.getElementById('singleMode').style.display = 'none';
+      document.getElementById('bulkMode').style.display = 'block';
+      
+      // Reset bulk mode
+      bulkSelectedReviewer = '';
+      bulkSelectedTargetType = '';
+      bulkSelectedReviewees.clear();
+      
       document.getElementById('assignmentForm').reset();
-      document.getElementById('reviewerInfo').textContent = '';
-      document.getElementById('revieweeInfo').textContent = '';
+      document.getElementById('reviewerInfoBulk').textContent = '';
+      document.getElementById('selectedRevieweesList').style.display = 'none';
       document.getElementById('modalError').style.display = 'none';
       document.getElementById('assignmentModal').style.display = 'block';
+      
+      filterAndUpdateBulkRevieweeSelect();
     }
 
     function editAssignment(index) {
@@ -796,14 +1028,19 @@
       const assignment = filteredAssignments[index];
       
       document.getElementById('modalTitle').textContent = 'Sửa Assignment';
-      document.getElementById('reviewerSelect').value = assignment.reviewer_email;
-      document.getElementById('revieweeSelect').value = assignment.reviewee_email;
-      document.getElementById('targetTypeSelect').value = assignment.target_type;
-      document.getElementById('statusSelect').value = assignment.status;
+      
+      // Show single mode
+      document.getElementById('singleMode').style.display = 'block';
+      document.getElementById('bulkMode').style.display = 'none';
+      
+      document.getElementById('reviewerSelectSingle').value = assignment.reviewer_email;
+      document.getElementById('revieweeSelectSingle').value = assignment.reviewee_email;
+      document.getElementById('targetTypeSelectSingle').value = assignment.target_type;
+      document.getElementById('statusSelectSingle').value = assignment.status;
       
       // Trigger change events to show info
-      document.getElementById('reviewerSelect').dispatchEvent(new Event('change'));
-      document.getElementById('revieweeSelect').dispatchEvent(new Event('change'));
+      document.getElementById('reviewerSelectSingle').dispatchEvent(new Event('change'));
+      document.getElementById('revieweeSelectSingle').dispatchEvent(new Event('change'));
       
       document.getElementById('modalError').style.display = 'none';
       document.getElementById('assignmentModal').style.display = 'block';
@@ -811,15 +1048,32 @@
 
     function closeModal() {
       document.getElementById('assignmentModal').style.display = 'none';
+      // Clear bulk mode state
+      bulkSelectedReviewer = '';
+      bulkSelectedTargetType = '';
+      bulkSelectedReviewees.clear();
     }
 
     function saveAssignment(event) {
       event.preventDefault();
       
-      const reviewerEmail = document.getElementById('reviewerSelect').value;
-      const revieweeEmail = document.getElementById('revieweeSelect').value;
-      const targetType = document.getElementById('targetTypeSelect').value;
-      const status = document.getElementById('statusSelect').value;
+      // Check if in single mode (edit) or bulk mode (add multiple)
+      const isSingleMode = document.getElementById('singleMode').style.display !== 'none';
+      
+      if (isSingleMode) {
+        // Single mode: edit existing
+        saveSingleAssignment();
+      } else {
+        // Bulk mode: add multiple
+        saveBulkAssignments();
+      }
+    }
+
+    function saveSingleAssignment() {
+      const reviewerEmail = document.getElementById('reviewerSelectSingle').value;
+      const revieweeEmail = document.getElementById('revieweeSelectSingle').value;
+      const targetType = document.getElementById('targetTypeSelectSingle').value;
+      const status = document.getElementById('statusSelectSingle').value;
 
       // Validation
       if (reviewerEmail === revieweeEmail) {
@@ -863,6 +1117,49 @@
           allAssignments[indexInAll] = newAssignment;
         }
       }
+
+      closeModal();
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function saveBulkAssignments() {
+      const reviewerEmail = document.getElementById('reviewerSelectBulk').value;
+      const targetType = document.getElementById('targetTypeSelectBulk').value;
+
+      // Validation
+      if (!reviewerEmail || !targetType) {
+        document.getElementById('modalError').textContent = 'Vui lòng chọn Reviewer và Loại đánh giá!';
+        document.getElementById('modalError').style.display = 'block';
+        return;
+      }
+
+      if (bulkSelectedReviewees.size === 0) {
+        document.getElementById('modalError').textContent = 'Vui lòng chọn ít nhất 1 Reviewee!';
+        document.getElementById('modalError').style.display = 'block';
+        return;
+      }
+
+      // Add multiple assignments
+      bulkSelectedReviewees.forEach(revieweeEmail => {
+        // Check if already exists
+        const isDuplicate = allAssignments.some(a =>
+          a.reviewer_email === reviewerEmail &&
+          a.reviewee_email === revieweeEmail &&
+          a.target_type === targetType
+        );
+
+        if (!isDuplicate) {
+          allAssignments.push({
+            reviewer_email: reviewerEmail,
+            reviewee_email: revieweeEmail,
+            target_type: targetType,
+            status: 'PENDING',
+            period: '2025'
+          });
+        }
+      });
 
       closeModal();
       updateStats();
@@ -975,10 +1272,18 @@
     window.deleteAssignment = deleteAssignment;
     window.closeModal = closeModal;
     window.saveAssignment = saveAssignment;
+    window.saveSingleAssignment = saveSingleAssignment;
+    window.saveBulkAssignments = saveBulkAssignments;
     window.bulkDelete = bulkDelete;
     window.bulkUpdateStatus = bulkUpdateStatus;
     window.saveAllChanges = saveAllChanges;
     window.logout = logout;
+    window.onBulkReviewerChange = onBulkReviewerChange;
+    window.onBulkTargetTypeChange = onBulkTargetTypeChange;
+    window.onBulkRevieweeSelect = onBulkRevieweeSelect;
+    window.removeBulkReviewee = removeBulkReviewee;
+    window.renderBulkSelectedReviewees = renderBulkSelectedReviewees;
+    window.filterAndUpdateBulkRevieweeSelect = filterAndUpdateBulkRevieweeSelect;
 
     // Close modal when clicking outside
     window.onclick = function(event) {
