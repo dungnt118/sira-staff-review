@@ -442,37 +442,42 @@
       }
 
       const assignmentsHTML = assignments.map(assignment => {
-        const statusClass = assignment.completed ? 'completed' : 'pending';
-        const statusBadgeClass = assignment.completed ? 'status-completed' : 'status-pending';
-        const statusText = assignment.completed ? 'Đã hoàn thành' : 'Chờ thực hiện';
+        // Map status to completed boolean
+        const isCompleted = assignment.status === 'COMPLETED';
+        const statusClass = isCompleted ? 'completed' : 'pending';
+        const statusBadgeClass = isCompleted ? 'status-completed' : 'status-pending';
+        const statusText = isCompleted ? 'Đã hoàn thành' : 'Chờ thực hiện';
+        
+        // Generate assignment ID from data if not present
+        const assignmentId = assignment.assignment_id || 
+          `${assignment.reviewer_email}_${assignment.reviewee_email}_${assignment.target_type}`.replace(/[^a-zA-Z0-9_]/g, '_');
+        
+        // Map target_type to display name
+        const targetTypeDisplay = assignment.target_type === 'EMPLOYEE' ? 'Nhân viên' : 'Quản lý';
         
         const revieweeInfo = assignment.reviewee ? `
           <div class="reviewee-info">
-            <div class="info-row">
-              <span class="info-label">ID:</span>
-              <span class="info-value">${assignment.reviewee.employee_id}</span>
-            </div>
             <div class="info-row">
               <span class="info-label">Email:</span>
               <span class="info-value">${assignment.reviewee.email}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Phòng ban:</span>
-              <span class="info-value">${assignment.reviewee.department}</span>
+              <span class="info-value">${assignment.reviewee.department || 'N/A'}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Chức vụ:</span>
-              <span class="info-value">${assignment.reviewee.position}</span>
+              <span class="info-value">${assignment.reviewee.position || 'N/A'}</span>
             </div>
           </div>
         ` : '<p style="color: #f44336;">⚠️ Không tìm thấy thông tin nhân viên</p>';
 
-        const actionButton = assignment.completed ? `
-          <button class="action-button btn-view">
+        const actionButton = isCompleted ? `
+          <button class="action-button btn-view" onclick="alert('Tính năng xem kết quả đang được phát triển')">
             👁️ Xem kết quả đã nộp
           </button>
         ` : `
-          <a href="review.html?assignment=${assignment.assignment_id}" class="action-button btn-review">
+          <a href="evaluation.html?reviewee_email=${encodeURIComponent(assignment.reviewee_email)}&target_type=${assignment.target_type}" class="action-button btn-review">
             ⭐ Bắt đầu đánh giá
           </a>
         `;
@@ -481,7 +486,7 @@
           <div class="assignment-card ${statusClass}">
             <div class="card-header">
               <h3 class="reviewee-name">
-                ${assignment.reviewee ? assignment.reviewee.name : 'Nhân viên không xác định'}
+                ${assignment.reviewee ? assignment.reviewee.name : assignment.reviewee_email}
               </h3>
               <span class="status-badge ${statusBadgeClass}">${statusText}</span>
             </div>
@@ -491,16 +496,12 @@
             <div class="assignment-details">
               <h4>Chi tiết phân công</h4>
               <div class="info-row">
-                <span class="info-label">Mã phân công:</span>
-                <span class="info-value">${assignment.assignment_id}</span>
+                <span class="info-label">Loại đánh giá:</span>
+                <span class="info-value">${targetTypeDisplay} (${assignment.target_type})</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Kỳ đánh giá:</span>
-                <span class="info-value">${assignment.period}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Nhóm tiêu chí:</span>
-                <span class="info-value">${assignment.criteria_group}</span>
+                <span class="info-value">${assignment.period || '2025'}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Trạng thái:</span>
@@ -519,7 +520,7 @@
     // Cập nhật thống kê
     function updateStats(assignments) {
       const total = assignments.length;
-      const completed = assignments.filter(a => a.completed).length;
+      const completed = assignments.filter(a => a.status === 'COMPLETED').length;
       const pending = total - completed;
 
       document.getElementById('total-assignments').textContent = total;
