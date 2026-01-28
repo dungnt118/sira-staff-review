@@ -695,7 +695,15 @@
         allEmployees = employeesData.employees || [];
         allAssignments = assignmentsData.assignments || [];
         
-        console.log('Loaded:', allEmployees.length, 'employees,', allAssignments.length, 'assignments');
+        console.log('%c✅ Loaded data', 'color: green; font-weight: bold;', {
+          employees: allEmployees.length,
+          assignments: allAssignments.length
+        });
+
+        // Debug: Show first few assignments structure
+        if (allAssignments.length > 0) {
+          console.log('%c📋 Sample assignments:', 'color: orange;', allAssignments.slice(0, 3));
+        }
 
         updateStats();
         populateFilters();
@@ -794,6 +802,7 @@
     // Bulk mode: when reviewer changes
     function onBulkReviewerChange() {
       const reviewer = document.getElementById('reviewerSelectBulk').value;
+      console.log('Reviewer changed:', reviewer);
       if (!reviewer) return;
       
       bulkSelectedReviewer = reviewer;
@@ -807,7 +816,9 @@
 
     // Bulk mode: when target type changes
     function onBulkTargetTypeChange() {
-      bulkSelectedTargetType = document.getElementById('targetTypeSelectBulk').value;
+      const targetType = document.getElementById('targetTypeSelectBulk').value;
+      console.log('Target type changed:', targetType);
+      bulkSelectedTargetType = targetType;
       filterAndUpdateBulkRevieweeSelect();
     }
 
@@ -819,27 +830,67 @@
 
       revieweeSelectBulk.innerHTML = '<option value="">-- Chọn reviewee để thêm --</option>';
 
+      // Nếu chưa chọn reviewer hoặc target type, không show reviewee list
+      if (!reviewer || !targetType) {
+        console.log('⚠️  Skip filter: reviewer=' + reviewer + ', targetType=' + targetType);
+        return;
+      }
+
+      const normReviewer = (reviewer || '').toLowerCase().trim();
+      const normTargetType = (targetType || '').toUpperCase().trim();
+
+      console.log('%c📋 Filtering reviewees', 'color: blue; font-weight: bold;', {
+        reviewer: normReviewer,
+        targetType: normTargetType,
+        allAssignmentsCount: allAssignments.length,
+        allEmployeesCount: allEmployees.length,
+        bulkSelectedCount: bulkSelectedReviewees.size
+      });
+
       const availableReviewees = allEmployees.filter(emp => {
+        const empEmail = (emp.email || '').toLowerCase().trim();
+
         // Exclude self
-        if (emp.email === reviewer) return false;
+        if (empEmail === normReviewer) {
+          console.log(`  ❌ ${emp.name} - bỏ vì là reviewer`);
+          return false;
+        }
         
-        // Exclude already selected
-        if (bulkSelectedReviewees.has(emp.email)) return false;
+        // Exclude already selected in bulk
+        if (bulkSelectedReviewees.has(emp.email)) {
+          console.log(`  ❌ ${emp.name} - bỏ vì đã được chọn`);
+          return false;
+        }
         
         // Exclude if already has assignment with this reviewer + target type
-        const hasDuplicate = allAssignments.some(a =>
-          a.reviewer_email === reviewer &&
-          a.reviewee_email === emp.email &&
-          a.target_type === targetType
-        );
+        const hasDuplicate = allAssignments.some(a => {
+          const aReviewer = (a.reviewer_email || '').toLowerCase().trim();
+          const aReviewee = (a.reviewee_email || '').toLowerCase().trim();
+          const aType = (a.target_type || '').toUpperCase().trim();
+
+          const match = aReviewer === normReviewer &&
+                        aReviewee === empEmail &&
+                        aType === normTargetType;
+
+          if (match) {
+            console.log(`  ❌ ${emp.name} - bỏ vì: assignment(${aReviewer}->${aReviewee}, ${aType})`);
+          }
+          return match;
+        });
+        
         if (hasDuplicate) return false;
         
+        console.log(`  ✅ ${emp.name} - giữ lại`);
         return true;
       });
 
+      console.log(`📊 Result: ${availableReviewees.length} available (từ ${allEmployees.length} tổng)`);
+
       availableReviewees.forEach(emp => {
-        const option = `<option value="${emp.email}">${emp.name} - ${emp.department}</option>`;
-        revieweeSelectBulk.innerHTML += option;
+        const option = document.createElement('option');
+        option.value = emp.email;
+        option.textContent = `${emp.name} - ${emp.department}`;
+        revieweeSelectBulk.appendChild(option);
       });
     }
 
