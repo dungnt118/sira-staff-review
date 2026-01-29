@@ -32,7 +32,7 @@ async function testConnection() {
     try {
       const employeesData = await sheets.spreadsheets.values.get({
         spreadsheetId: spreadsheetId,
-        range: 'EMPLOYEES!A1:F5'
+        range: 'EMPLOYEES!A1:I5'
       });
       
       if (employeesData.data.values) {

@@ -50,7 +50,7 @@ async function importCSVData() {
     try {
       const employeesResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'EMPLOYEES!A:F'
+        range: config.RANGES.EMPLOYEES
       });
       
       const employeesCount = employeesResponse.data.values ? employeesResponse.data.values.length - 1 : 0;
@@ -107,7 +107,7 @@ async function clearAndWriteSheet(sheets, sheetName, data) {
     // Clear existing data
     await sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`
+      range: `${sheetName}!${config.RANGES.CLEAR_ALL}`
     });
 
     // Write new data
