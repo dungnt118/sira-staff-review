@@ -733,6 +733,13 @@
           </div>
 
           <div class="form-group">
+            <label>Lọc theo Phòng ban</label>
+            <select id="departmentFilterBulk" onchange="onBulkDepartmentChange()">
+              <option value="">-- Tất cả phòng --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>Chọn Reviewee (người được đánh giá) *</label>
             <div class="searchable-select-wrapper">
               <input type="text" id="revieweeSearchBulk" placeholder="🔍 Tìm kiếm reviewee..." class="search-input" onkeyup="filterRevieweeDropdown()">
@@ -962,6 +969,9 @@
       document.getElementById('reviewerInfoBulk').textContent = emp ? 
         `Phòng ban: ${emp.department} | Chức vụ: ${emp.position}` : '';
       
+      // Reset department filter when reviewer changes
+      document.getElementById('departmentFilterBulk').value = '';
+      
       // Update reviewee dropdown when target type is also selected
       onBulkTargetTypeChange();
     }
@@ -971,6 +981,40 @@
       const targetType = document.getElementById('targetTypeSelectBulk').value;
       console.log('Target type changed:', targetType);
       bulkSelectedTargetType = targetType;
+      
+      // Populate department filter
+      populateDepartmentFilterBulk();
+      
+      filterAndUpdateBulkRevieweeSelect();
+    }
+
+    // Populate department filter dropdown
+    function populateDepartmentFilterBulk() {
+      const departmentFilter = document.getElementById('departmentFilterBulk');
+      const currentValue = departmentFilter.value;
+      
+      // Get unique departments
+      const departments = new Set();
+      allEmployees.forEach(emp => {
+        if (emp.department) {
+          departments.add(emp.department);
+        }
+      });
+
+      departmentFilter.innerHTML = '<option value="">-- Tất cả phòng --</option>';
+      Array.from(departments).sort().forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        departmentFilter.appendChild(option);
+      });
+
+      departmentFilter.value = currentValue;
+    }
+
+    // Bulk mode: when department filter changes
+    function onBulkDepartmentChange() {
+      console.log('Department filter changed');
       filterAndUpdateBulkRevieweeSelect();
     }
 
@@ -978,6 +1022,7 @@
     function filterAndUpdateBulkRevieweeSelect() {
       const reviewer = document.getElementById('reviewerSelectBulk').value;
       const targetType = document.getElementById('targetTypeSelectBulk').value;
+      const departmentFilter = document.getElementById('departmentFilterBulk').value;
       const revieweeSelectBulk = document.getElementById('revieweeSelectBulk');
 
       revieweeSelectBulk.innerHTML = '<option value="">-- Chọn reviewee để thêm --</option>';
@@ -994,6 +1039,7 @@
       console.log('%c📋 Filtering reviewees', 'color: blue; font-weight: bold;', {
         reviewer: normReviewer,
         targetType: normTargetType,
+        department: departmentFilter,
         allAssignmentsCount: allAssignments.length,
         allEmployeesCount: allEmployees.length,
         bulkSelectedCount: bulkSelectedReviewees.size
@@ -1001,6 +1047,11 @@
 
       const availableReviewees = allEmployees.filter(emp => {
         const empEmail = (emp.email || '').toLowerCase().trim();
+
+        // Filter by department if selected
+        if (departmentFilter && emp.department !== departmentFilter) {
+          return false;
+        }
 
         // Exclude self
         if (empEmail === normReviewer) {
