@@ -103,9 +103,11 @@
       }
     })();
 
-    // Kiểm tra mode view (readonly)
+    // Kiểm tra mode (view hoặc edit, default là edit)
     const urlParams = new URLSearchParams(window.location.search);
-    const isViewMode = urlParams.get('mode') === 'view';
+    const mode = urlParams.get('mode') || 'edit';
+    const isViewMode = mode === 'view';
+    const isEditMode = mode === 'edit';
   </script>
   
   <script type="module">
@@ -143,8 +145,8 @@
     }
 
     function getAssignment() {
-      // Nếu mode view, lấy từ URL query parameters
-      if (isViewMode) {
+      // Nếu có URL query parameters (mode=view hoặc mode=edit), lấy từ URL
+      if (isViewMode || isEditMode) {
         const reviewer_email = urlParams.get('reviewer_email');
         const reviewee_email = urlParams.get('reviewee_email');
         const target_type = urlParams.get('target_type');
@@ -164,7 +166,7 @@
         }
       }
       
-      // Nếu không phải mode view, lấy từ sessionStorage
+      // Fallback: lấy từ sessionStorage (cách cũ, không khuyến nghị)
       const raw = sessionStorage.getItem('currentAssignment');
       if (!raw) return null;
       try { return JSON.parse(raw); } catch { return null; }
@@ -343,8 +345,8 @@
         setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
         return;
       }
-      // Tải thông tin người được đánh giá nếu ở chế độ view
-      if (isViewMode) {
+      // Tải thông tin người được đánh giá nếu ở chế độ view hoặc edit
+      if (isViewMode || isEditMode) {
         await loadRevieweeInfo(assignment);
       }
       // Hiển thị notifier nếu ở chế độ view

@@ -533,7 +533,7 @@
             � Xem kết quả đã nộp
           </button>
         ` : `
-          <a href="evaluation.html?reviewee_email=${encodeURIComponent(assignment.reviewee_email)}&target_type=${assignment.target_type}" class="action-button btn-review">
+          <a href="evaluation.html?mode=edit&reviewee_email=${encodeURIComponent(assignment.reviewee_email)}&target_type=${assignment.target_type}&reviewer_email=${encodeURIComponent(assignment.reviewer_email)}" class="action-button btn-review">
             ⭐ Bắt đầu đánh giá
           </a>
         `;
