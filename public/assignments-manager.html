@@ -172,6 +172,11 @@
       background: #f3e5f5;
     }
 
+    .stat-card-success {
+      border-left-color: #4CAF50;
+      background: #e8f5e9;
+    }
+
     .assignments-table-container {
       overflow-x: auto;
       margin-bottom: 20px;
@@ -210,6 +215,15 @@
 
     .assignments-table tbody tr.duplicate-row:hover {
       background: #ffe0b2 !important;
+    }
+
+    .assignments-table tbody tr.manager-row {
+      background: #e8f5e9 !important;
+      border-left: 3px solid #4caf50;
+    }
+
+    .assignments-table tbody tr.manager-row:hover {
+      background: #c8e6c9 !important;
     }
 
     .badge {
@@ -559,6 +573,14 @@
             <h3 id="duplicateCount">0</h3>
             <p>Bản ghi trùng lặp</p>
           </div>
+          <div class="stat-card stat-card-success">
+            <h3 id="employeeCount">0</h3>
+            <p>Assignment Nhân viên</p>
+          </div>
+          <div class="stat-card stat-card-warning">
+            <h3 id="managerCount">0</h3>
+            <p>Assignment Quản lý</p>
+          </div>
         </div>
 
         <!-- Filters -->
@@ -886,6 +908,12 @@
         }
       });
       document.getElementById('duplicateCount').textContent = duplicateCount;
+
+      // Tính số assignment theo loại
+      const employeeCount = allAssignments.filter(a => a.target_type === 'EMPLOYEE').length;
+      const managerCount = allAssignments.filter(a => a.target_type === 'MANAGER').length;
+      document.getElementById('employeeCount').textContent = employeeCount;
+      document.getElementById('managerCount').textContent = managerCount;
     }
 
     function populateFilters() {
@@ -1301,10 +1329,14 @@
         const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
         const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
         const isDuplicate = duplicateIndices.has(index);
+        const isManager = assignment.target_type === 'MANAGER';
 
         const row = document.createElement('tr');
         if (isDuplicate) {
-          row.className = 'duplicate-row';
+          row.classList.add('duplicate-row');
+        }
+        if (isManager) {
+          row.classList.add('manager-row');
         }
         row.innerHTML = `
           <td>
@@ -1360,6 +1392,18 @@
       Object.keys(groups).sort().forEach((reviewerEmail) => {
         const reviewer = allEmployees.find(e => e.email === reviewerEmail);
         const groupIndices = groups[reviewerEmail].map(g => g.index);
+        
+        // Sort: MANAGER items first, then EMPLOYEE
+        const sortedItems = groups[reviewerEmail].sort((a, b) => {
+          if (a.assignment.target_type === 'MANAGER' && b.assignment.target_type !== 'MANAGER') return -1;
+          if (a.assignment.target_type !== 'MANAGER' && b.assignment.target_type === 'MANAGER') return 1;
+          return 0;
+        });
+
+        // Count EMPLOYEE and MANAGER in this group
+        const employeeCount = sortedItems.filter(item => item.assignment.target_type === 'EMPLOYEE').length;
+        const managerCount = sortedItems.filter(item => item.assignment.target_type === 'MANAGER').length;
+
         const allChecked = groupIndices.every(idx => selectedAssignments.has(idx));
         const currentGroupId = `group-reviewer-${groupId}`;
         
@@ -1383,20 +1427,24 @@
           </td>
           <td colspan="7" style="padding: 12px; border-left: 4px solid #2196F3; padding-left: 20px;">
             <span class="group-toggle-icon" data-group-id="${currentGroupId}">▶</span>
-            👤 ${reviewer ? reviewer.name : reviewerEmail} (${reviewer ? reviewer.department : '-'}) - ${groups[reviewerEmail].length} người được đánh giá
+            👤 ${reviewer ? reviewer.name : reviewerEmail} (${reviewer ? reviewer.department : '-'}) - Tổng: ${groups[reviewerEmail].length} (👨 ${managerCount} | 👤 ${employeeCount})
           </td>
         `;
         tbody.appendChild(headerRow);
 
         // Data rows
-        groups[reviewerEmail].forEach(({ assignment, index }) => {
+        sortedItems.forEach(({ assignment, index }) => {
           const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
           const isDuplicate = duplicateIndices.has(index);
+          const isManager = assignment.target_type === 'MANAGER';
 
           const row = document.createElement('tr');
           row.className = `group-content ${currentGroupId}`;
           if (isDuplicate) {
             row.classList.add('duplicate-row');
+          }
+          if (isManager) {
+            row.classList.add('manager-row');
           }
           row.style.display = 'none'; // Mặc định collapsed
           row.innerHTML = `
@@ -1456,6 +1504,18 @@
       Object.keys(groups).sort().forEach((revieweeEmail) => {
         const reviewee = allEmployees.find(e => e.email === revieweeEmail);
         const groupIndices = groups[revieweeEmail].map(g => g.index);
+        
+        // Sort: MANAGER items first, then EMPLOYEE
+        const sortedItems = groups[revieweeEmail].sort((a, b) => {
+          if (a.assignment.target_type === 'MANAGER' && b.assignment.target_type !== 'MANAGER') return -1;
+          if (a.assignment.target_type !== 'MANAGER' && b.assignment.target_type === 'MANAGER') return 1;
+          return 0;
+        });
+
+        // Count EMPLOYEE and MANAGER in this group
+        const employeeCount = sortedItems.filter(item => item.assignment.target_type === 'EMPLOYEE').length;
+        const managerCount = sortedItems.filter(item => item.assignment.target_type === 'MANAGER').length;
+
         const allChecked = groupIndices.every(idx => selectedAssignments.has(idx));
         const currentGroupId = `group-reviewee-${groupId}`;
         
@@ -1479,20 +1539,24 @@
           </td>
           <td colspan="7" style="padding: 12px; border-left: 4px solid #9C27B0; padding-left: 20px;">
             <span class="group-toggle-icon" data-group-id="${currentGroupId}">▶</span>
-            👥 ${reviewee ? reviewee.name : revieweeEmail} (${reviewee ? reviewee.department : '-'}) - Được ${groups[revieweeEmail].length} người đánh giá
+            👥 ${reviewee ? reviewee.name : revieweeEmail} (${reviewee ? reviewee.department : '-'}) - Tổng: ${groups[revieweeEmail].length} (👨 ${managerCount} | 👤 ${employeeCount})
           </td>
         `;
         tbody.appendChild(headerRow);
 
         // Data rows
-        groups[revieweeEmail].forEach(({ assignment, index }) => {
+        sortedItems.forEach(({ assignment, index }) => {
           const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
           const isDuplicate = duplicateIndices.has(index);
+          const isManager = assignment.target_type === 'MANAGER';
 
           const row = document.createElement('tr');
           row.className = `group-content ${currentGroupId}`;
           if (isDuplicate) {
             row.classList.add('duplicate-row');
+          }
+          if (isManager) {
+            row.classList.add('manager-row');
           }
           row.style.display = 'none'; // Mặc định collapsed
           row.innerHTML = `
