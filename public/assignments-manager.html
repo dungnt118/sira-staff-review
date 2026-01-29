@@ -698,6 +698,19 @@
       
       <div id="modalError" class="error-message" style="display: none;"></div>
       
+      <!-- Mode Toggle (only for add modal, not edit) -->
+      <div id="modeToggleSection" style="display: none; margin-bottom: 20px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span style="font-weight: 600; color: #333;">Chế độ:</span>
+          <button type="button" id="modeToggleBtn" class="btn btn-toggle" onclick="toggleMode()" style="background: #2196F3; color: white; padding: 8px 16px; border-radius: 20px;">
+            Chế độ 2: Theo Người được đánh giá
+          </button>
+        </div>
+        <p style="font-size: 12px; color: #666; margin: 8px 0 0 0;">
+          <strong id="modeDesc">Chế độ 2:</strong> <span id="modeDescText">Chọn 1 người được đánh giá, sau đó chọn nhiều người đánh giá</span>
+        </p>
+      </div>
+      
       <form id="assignmentForm" onsubmit="saveAssignment(event)">
         <div id="singleMode" style="display: none;">
           <!-- Single mode: edit existing -->
@@ -781,6 +794,53 @@
           </div>
         </div>
 
+        <!-- Mode 2: Reviewee Centric Mode -->
+        <div id="bulkMode2" style="display: none;">
+          <!-- Bulk mode 2: select reviewee, then add multiple reviewers -->
+          <div class="form-group">
+            <label>Người được đánh giá *</label>
+            <select id="revieweeSelectMode2" required onchange="onMode2RevieweeChange()">
+              <option value="">-- Chọn người được đánh giá --</option>
+            </select>
+            <div class="info-text" id="revieweeInfoMode2"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Loại đánh giá *</label>
+            <select id="targetTypeSelectMode2" required onchange="onMode2TargetTypeChange()">
+              <option value="">-- Chọn loại --</option>
+              <option value="EMPLOYEE">Nhân viên (EMPLOYEE)</option>
+              <option value="MANAGER">Quản lý (MANAGER)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Lọc theo Phòng ban (Người đánh giá)</label>
+            <select id="departmentFilterMode2" onchange="onMode2DepartmentChange()">
+              <option value="">-- Tất cả phòng --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Chọn Người đánh giá *</label>
+            <div class="searchable-select-wrapper">
+              <input type="text" id="reviewerSearchMode2" placeholder="🔍 Tìm kiếm người đánh giá..." class="search-input" onkeyup="filterReviewerDropdownMode2()">
+              <select id="reviewerSelectMode2" onchange="onMode2ReviewerSelect()" size="5">
+                <option value="">-- Chọn người đánh giá để thêm --</option>
+              </select>
+            </div>
+            <div style="margin-top: 8px;">
+              <button type="button" class="btn btn-sm btn-info" onclick="selectAllAvailableReviewersMode2()">Chọn hết</button>
+            </div>
+          </div>
+
+          <!-- Selected reviewers list for Mode 2 -->
+          <div class="selected-reviewees-list" id="selectedReviewersList" style="display: none;">
+            <h4 id="selectedReviewersCount">0 Người đánh giá đã chọn</h4>
+            <div id="selectedReviewersContainer"></div>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button type="button" onclick="closeModal()" class="btn btn-danger">Hủy</button>
           <button type="submit" class="btn btn-success" id="submitBtn">Lưu</button>
@@ -815,10 +875,16 @@
     let editingIndex = -1;
     let selectedAssignments = new Set();
     
-    // For bulk add mode
+    // For bulk add mode (Mode 1: Reviewer Centric)
     let bulkSelectedReviewer = '';
     let bulkSelectedTargetType = '';
     let bulkSelectedReviewees = new Set();
+
+    // For bulk mode 2 (Mode 2: Reviewee Centric)
+    let currentMode = 2; // Default: Mode 2 (1 = Mode 1: Reviewer Centric, 2 = Mode 2: Reviewee Centric)
+    let bulkSelectedReviewee = '';
+    let bulkSelectedTargetTypeMode2 = '';
+    let bulkSelectedReviewers = new Set();
 
     // Load data on page load
     window.addEventListener('DOMContentLoaded', async () => {
@@ -969,6 +1035,9 @@
       const reviewerSelectBulk = document.getElementById('reviewerSelectBulk');
       const revieweeSelectBulk = document.getElementById('revieweeSelectBulk');
 
+      // Populate mode 2 selects
+      const revieweeSelectMode2 = document.getElementById('revieweeSelectMode2');
+
       [reviewerSelectSingle, reviewerSelectBulk].forEach(select => {
         select.innerHTML = '<option value="">-- Chọn reviewer --</option>';
         allEmployees.forEach(emp => {
@@ -983,6 +1052,13 @@
           const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
           select.innerHTML += option;
         });
+      });
+
+      // Populate mode 2 reviewee select
+      revieweeSelectMode2.innerHTML = '<option value="">-- Chọn người được đánh giá --</option>';
+      allEmployees.forEach(emp => {
+        const option = `<option value="${emp.email}">${emp.name} - ${emp.department} (${emp.email})</option>`;
+        revieweeSelectMode2.innerHTML += option;
       });
 
       // Add event listeners for single mode
@@ -1035,6 +1111,30 @@
     // Populate department filter dropdown
     function populateDepartmentFilterBulk() {
       const departmentFilter = document.getElementById('departmentFilterBulk');
+      const currentValue = departmentFilter.value;
+      
+      // Get unique departments
+      const departments = new Set();
+      allEmployees.forEach(emp => {
+        if (emp.department) {
+          departments.add(emp.department);
+        }
+      });
+
+      departmentFilter.innerHTML = '<option value="">-- Tất cả phòng --</option>';
+      Array.from(departments).sort().forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        departmentFilter.appendChild(option);
+      });
+
+      departmentFilter.value = currentValue;
+    }
+
+    // Populate department filter for Mode 2 (filter reviewers by department)
+    function populateDepartmentFilterMode2() {
+      const departmentFilter = document.getElementById('departmentFilterMode2');
       const currentValue = departmentFilter.value;
       
       // Get unique departments
@@ -1225,6 +1325,181 @@
       renderBulkSelectedReviewees();
       filterAndUpdateBulkRevieweeSelect();
     }
+
+    // ============ MODE 2 FUNCTIONS (Reviewee Centric) ============
+
+    // Mode 2: When reviewer selection changes
+    function onMode2RevieweeChange() {
+      const email = document.getElementById('revieweeSelectMode2').value;
+      const name = email ? allEmployees.find(e => e.email === email)?.name || email : '';
+      const department = email ? allEmployees.find(e => e.email === email)?.department || '' : '';
+      
+      if (email) {
+        document.getElementById('revieweeInfoMode2').textContent = `${name} | ${department}`;
+      } else {
+        document.getElementById('revieweeInfoMode2').textContent = '';
+      }
+      
+      bulkSelectedReviewee = email;
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: When target type changes
+    function onMode2TargetTypeChange() {
+      bulkSelectedTargetTypeMode2 = document.getElementById('targetTypeSelectMode2').value;
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: When department filter changes
+    function onMode2DepartmentChange() {
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: When reviewer is selected from dropdown
+    function onMode2ReviewerSelect() {
+      const email = document.getElementById('reviewerSelectMode2').value;
+      if (!email) return;
+      
+      bulkSelectedReviewers.add(email);
+      document.getElementById('reviewerSelectMode2').value = '';
+      document.getElementById('reviewerSearchMode2').value = '';
+      filterReviewerDropdownMode2();
+      renderMode2SelectedReviewers();
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: Filter reviewer dropdown
+    function filterReviewerDropdownMode2() {
+      const searchText = document.getElementById('reviewerSearchMode2').value.toLowerCase();
+      const options = document.getElementById('reviewerSelectMode2').querySelectorAll('option');
+
+      options.forEach(option => {
+        if (option.value === '') {
+          option.style.display = 'block'; // Always show placeholder
+          return;
+        }
+        const emp = allEmployees.find(e => e.email === option.value);
+        const matchText = `${emp?.name || ''} ${emp?.department || ''} ${emp?.email || ''}`.toLowerCase();
+        option.style.display = matchText.includes(searchText) ? 'block' : 'none';
+      });
+    }
+
+    // Mode 2: Select all available reviewers
+    function selectAllAvailableReviewersMode2() {
+      const selectElement = document.getElementById('reviewerSelectMode2');
+      const options = selectElement.querySelectorAll('option');
+
+      options.forEach(option => {
+        if (option.value && option.style.display !== 'none') {
+          bulkSelectedReviewers.add(option.value);
+        }
+      });
+
+      document.getElementById('reviewerSearchMode2').value = '';
+      filterReviewerDropdownMode2();
+      selectElement.value = '';
+      renderMode2SelectedReviewers();
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: Render selected reviewers list
+    function renderMode2SelectedReviewers() {
+      const container = document.getElementById('selectedReviewersContainer');
+      const listDiv = document.getElementById('selectedReviewersList');
+      const countElement = document.getElementById('selectedReviewersCount');
+
+      if (bulkSelectedReviewers.size === 0) {
+        listDiv.style.display = 'none';
+        return;
+      }
+
+      container.innerHTML = '';
+      bulkSelectedReviewers.forEach(email => {
+        const emp = allEmployees.find(e => e.email === email);
+        const item = document.createElement('div');
+        item.className = 'selected-reviewee-item';
+        item.innerHTML = `
+          <div class="selected-reviewee-info">
+            <div class="selected-reviewee-name">${emp?.name || email}</div>
+            <div class="selected-reviewee-meta">${emp?.department || ''} | ${emp?.position || ''}</div>
+            <div class="selected-reviewee-email">${email}</div>
+          </div>
+          <button type="button" class="selected-reviewee-remove" onclick="removeMode2SelectedReviewer('${email}')">✕</button>
+        `;
+        container.appendChild(item);
+      });
+
+      countElement.textContent = `${bulkSelectedReviewers.size} Người đánh giá đã chọn`;
+      listDiv.style.display = 'block';
+    }
+
+    // Mode 2: Remove selected reviewer from list
+    function removeMode2SelectedReviewer(email) {
+      bulkSelectedReviewers.delete(email);
+      renderMode2SelectedReviewers();
+      filterAndUpdateMode2ReviewerSelect();
+    }
+
+    // Mode 2: Filter and update reviewer dropdown
+    function filterAndUpdateMode2ReviewerSelect() {
+      const revieweeEmail = document.getElementById('revieweeSelectMode2').value;
+      const targetType = document.getElementById('targetTypeSelectMode2').value;
+      const departmentFilter = document.getElementById('departmentFilterMode2').value;
+      const reviewerSelectMode2 = document.getElementById('reviewerSelectMode2');
+
+      reviewerSelectMode2.innerHTML = '<option value="">-- Chọn người đánh giá để thêm --</option>';
+
+      // Nếu chưa chọn reviewee hoặc target type, không show reviewer list
+      if (!revieweeEmail || !targetType) {
+        return;
+      }
+
+      const normReviewee = (revieweeEmail || '').toLowerCase().trim();
+      const normTargetType = (targetType || '').toUpperCase().trim();
+
+      const availableReviewers = allEmployees.filter(emp => {
+        const empEmail = (emp.email || '').toLowerCase().trim();
+
+        // Filter by department if selected
+        if (departmentFilter && emp.department !== departmentFilter) {
+          return false;
+        }
+
+        // Exclude self (reviewer cannot review themselves)
+        if (empEmail === normReviewee) {
+          return false;
+        }
+        
+        // Exclude already selected reviewers
+        if (bulkSelectedReviewers.has(emp.email)) {
+          return false;
+        }
+        
+        // Exclude if already has assignment with this reviewee + target type
+        const hasDuplicate = allAssignments.some(a => {
+          const aReviewer = (a.reviewer_email || '').toLowerCase().trim();
+          const aReviewee = (a.reviewee_email || '').toLowerCase().trim();
+          const aType = (a.target_type || '').toUpperCase().trim();
+
+          return aReviewer === empEmail &&
+                 aReviewee === normReviewee &&
+                 aType === normTargetType;
+        });
+        
+        if (hasDuplicate) return false;
+        
+        return true;
+      });
+
+      availableReviewers.forEach(emp => {
+        const option = document.createElement('option');
+        option.value = emp.email;
+        option.textContent = `${emp.name} - ${emp.department}`;
+        reviewerSelectMode2.appendChild(option);
+      });
+    }
+
+    // ============ END MODE 2 FUNCTIONS ============
 
     function applyFilters() {
       const reviewerFilter = document.getElementById('filterReviewer').value;
@@ -1685,31 +1960,117 @@
       editingIndex = -1;
       document.getElementById('modalTitle').textContent = 'Thêm Đánh giá';
       
-      // Show bulk mode (multi-select)
+      // Reset mode to 2 (default: Reviewee Centric)
+      currentMode = 2;
+      
+      // Show mode toggle section
+      document.getElementById('modeToggleSection').style.display = 'block';
+      
+      // Show Mode 2 by default (Reviewee Centric)
       document.getElementById('singleMode').style.display = 'none';
-      document.getElementById('bulkMode').style.display = 'block';
+      document.getElementById('bulkMode').style.display = 'none';
+      document.getElementById('bulkMode2').style.display = 'block';
       
       // Disable required validation for hidden single mode fields
       document.getElementById('reviewerSelectSingle').removeAttribute('required');
       document.getElementById('revieweeSelectSingle').removeAttribute('required');
       document.getElementById('targetTypeSelectSingle').removeAttribute('required');
       
-      // Enable required validation for bulk mode fields
-      document.getElementById('reviewerSelectBulk').setAttribute('required', 'required');
-      document.getElementById('targetTypeSelectBulk').setAttribute('required', 'required');
+      // Disable required validation for hidden Mode 1 bulk mode fields
+      document.getElementById('reviewerSelectBulk').removeAttribute('required');
+      document.getElementById('targetTypeSelectBulk').removeAttribute('required');
       
-      // Reset bulk mode
+      // Enable required validation for Mode 2 fields
+      document.getElementById('revieweeSelectMode2').setAttribute('required', 'required');
+      document.getElementById('targetTypeSelectMode2').setAttribute('required', 'required');
+      
+      // Reset both modes
       bulkSelectedReviewer = '';
       bulkSelectedTargetType = '';
       bulkSelectedReviewees.clear();
+      bulkSelectedReviewee = '';
+      bulkSelectedTargetTypeMode2 = '';
+      bulkSelectedReviewers.clear();
+      
+      // Update toggle button text
+      updateModeToggleButton();
       
       document.getElementById('assignmentForm').reset();
-      document.getElementById('reviewerInfoBulk').textContent = '';
-      document.getElementById('selectedRevieweesList').style.display = 'none';
+      document.getElementById('revieweeInfoMode2').textContent = '';
+      document.getElementById('selectedReviewersList').style.display = 'none';
       document.getElementById('modalError').style.display = 'none';
       document.getElementById('assignmentModal').style.display = 'block';
       
-      filterAndUpdateBulkRevieweeSelect();
+      filterAndUpdateMode2ReviewerSelect();
+      populateDepartmentFilterMode2();
+      populateSelects();
+    }
+
+    // Toggle between Mode 1 (Reviewer Centric) and Mode 2 (Reviewee Centric)
+    function toggleMode() {
+      currentMode = currentMode === 1 ? 2 : 1;
+      
+      // Reset selected items when toggling
+      bulkSelectedReviewer = '';
+      bulkSelectedTargetType = '';
+      bulkSelectedReviewees.clear();
+      bulkSelectedReviewee = '';
+      bulkSelectedTargetTypeMode2 = '';
+      bulkSelectedReviewers.clear();
+      
+      // Reset form
+      document.getElementById('assignmentForm').reset();
+      document.getElementById('modalError').style.display = 'none';
+      
+      if (currentMode === 1) {
+        // Show Mode 1 (Reviewer Centric - old bulk mode)
+        document.getElementById('bulkMode').style.display = 'block';
+        document.getElementById('bulkMode2').style.display = 'none';
+        
+        // Update required attributes
+        document.getElementById('reviewerSelectBulk').setAttribute('required', 'required');
+        document.getElementById('targetTypeSelectBulk').setAttribute('required', 'required');
+        document.getElementById('revieweeSelectMode2').removeAttribute('required');
+        document.getElementById('targetTypeSelectMode2').removeAttribute('required');
+        
+        document.getElementById('reviewerInfoBulk').textContent = '';
+        document.getElementById('selectedRevieweesList').style.display = 'none';
+        
+        filterAndUpdateBulkRevieweeSelect();
+      } else {
+        // Show Mode 2 (Reviewee Centric)
+        document.getElementById('bulkMode').style.display = 'none';
+        document.getElementById('bulkMode2').style.display = 'block';
+        
+        // Update required attributes
+        document.getElementById('reviewerSelectBulk').removeAttribute('required');
+        document.getElementById('targetTypeSelectBulk').removeAttribute('required');
+        document.getElementById('revieweeSelectMode2').setAttribute('required', 'required');
+        document.getElementById('targetTypeSelectMode2').setAttribute('required', 'required');
+        
+        document.getElementById('revieweeInfoMode2').textContent = '';
+        document.getElementById('selectedReviewersList').style.display = 'none';
+        
+        filterAndUpdateMode2ReviewerSelect();
+      }
+      
+      updateModeToggleButton();
+    }
+
+    function updateModeToggleButton() {
+      const btn = document.getElementById('modeToggleBtn');
+      const desc = document.getElementById('modeDesc');
+      const descText = document.getElementById('modeDescText');
+      
+      if (currentMode === 1) {
+        btn.textContent = 'Chế độ 1: Theo Người đánh giá';
+        desc.textContent = 'Chế độ 1:';
+        descText.textContent = 'Chọn 1 người đánh giá, sau đó chọn nhiều người được đánh giá';
+      } else {
+        btn.textContent = 'Chế độ 2: Theo Người được đánh giá';
+        desc.textContent = 'Chế độ 2:';
+        descText.textContent = 'Chọn 1 người được đánh giá, sau đó chọn nhiều người đánh giá';
+      }
     }
 
     function editAssignment(index) {
@@ -1718,9 +2079,13 @@
       
       document.getElementById('modalTitle').textContent = 'Sửa Đánh giá';
       
+      // Hide mode toggle section for edit modal
+      document.getElementById('modeToggleSection').style.display = 'none';
+      
       // Show single mode
       document.getElementById('singleMode').style.display = 'block';
       document.getElementById('bulkMode').style.display = 'none';
+      document.getElementById('bulkMode2').style.display = 'none';
       
       // Enable required validation for single mode fields
       document.getElementById('reviewerSelectSingle').setAttribute('required', 'required');
@@ -1730,6 +2095,8 @@
       // Disable required validation for hidden bulk mode fields
       document.getElementById('reviewerSelectBulk').removeAttribute('required');
       document.getElementById('targetTypeSelectBulk').removeAttribute('required');
+      document.getElementById('revieweeSelectMode2').removeAttribute('required');
+      document.getElementById('targetTypeSelectMode2').removeAttribute('required');
       
       document.getElementById('reviewerSelectSingle').value = assignment.reviewer_email;
       document.getElementById('revieweeSelectSingle').value = assignment.reviewee_email;
@@ -1750,6 +2117,10 @@
       bulkSelectedReviewer = '';
       bulkSelectedTargetType = '';
       bulkSelectedReviewees.clear();
+      // Clear mode 2 state
+      bulkSelectedReviewee = '';
+      bulkSelectedTargetTypeMode2 = '';
+      bulkSelectedReviewers.clear();
     }
 
     function saveAssignment(event) {
@@ -1761,9 +2132,12 @@
       if (isSingleMode) {
         // Single mode: edit existing
         saveSingleAssignment();
-      } else {
-        // Bulk mode: add multiple
+      } else if (currentMode === 1) {
+        // Mode 1: Bulk assignments with fixed reviewer
         saveBulkAssignments();
+      } else {
+        // Mode 2: Bulk assignments with fixed reviewee
+        saveBulkMode2Assignments();
       }
     }
 
@@ -1859,10 +2233,93 @@
         }
       });
 
+      const createdCount = bulkSelectedReviewees.size;
       closeModal();
+      showSuccessWithGoogleSheetsOption(createdCount);
       updateStats();
       populateFilters();
       applyFilters();
+    }
+
+    function saveBulkMode2Assignments() {
+      const revieweeEmail = document.getElementById('revieweeSelectMode2').value;
+      const targetType = document.getElementById('targetTypeSelectMode2').value;
+
+      // Validation
+      if (!revieweeEmail || !targetType) {
+        document.getElementById('modalError').textContent = 'Vui lòng chọn Người được đánh giá và Loại đánh giá!';
+        document.getElementById('modalError').style.display = 'block';
+        return;
+      }
+
+      if (bulkSelectedReviewers.size === 0) {
+        document.getElementById('modalError').textContent = 'Vui lòng chọn ít nhất 1 Người đánh giá!';
+        document.getElementById('modalError').style.display = 'block';
+        return;
+      }
+
+      // Add multiple assignments (same reviewee, multiple reviewers)
+      let createdCount = 0;
+      bulkSelectedReviewers.forEach(reviewerEmail => {
+        // Check if already exists
+        const isDuplicate = allAssignments.some(a =>
+          a.reviewer_email === reviewerEmail &&
+          a.reviewee_email === revieweeEmail &&
+          a.target_type === targetType
+        );
+
+        if (!isDuplicate) {
+          allAssignments.push({
+            reviewer_email: reviewerEmail,
+            reviewee_email: revieweeEmail,
+            target_type: targetType,
+            status: 'PENDING',
+            period: '2025'
+          });
+          createdCount++;
+        }
+      });
+
+      // Show success notification with Google Sheets suggestion button
+      closeModal();
+      showSuccessWithGoogleSheetsOption(createdCount);
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function showSuccessWithGoogleSheetsOption(count) {
+      // Create a custom notification div
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        max-width: 400px;
+      `;
+      notification.innerHTML = `
+        <div style="margin-bottom: 12px; font-weight: 600;">
+          ✅ Đã tạo thành công ${count} đánh giá!
+        </div>
+        <button onclick="saveAllChanges()" class="btn btn-sm" style="background: white; color: #4CAF50; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;">
+          💾 Lưu vào Google Sheet
+        </button>
+        <button onclick="this.parentElement.remove()" style="background: none; border: none; color: white; cursor: pointer; margin-left: 8px; font-size: 18px; padding: 0; vertical-align: top;">✕</button>
+      `;
+      document.body.appendChild(notification);
+      
+      // Auto-remove after 10 seconds
+      setTimeout(() => {
+        if (notification.parentElement) {
+          notification.remove();
+        }
+      }, 10000);
     }
 
     function deleteAssignment(index) {
@@ -2026,9 +2483,28 @@
     window.onBulkReviewerChange = onBulkReviewerChange;
     window.onBulkTargetTypeChange = onBulkTargetTypeChange;
     window.onBulkRevieweeSelect = onBulkRevieweeSelect;
+    window.onBulkDepartmentChange = onBulkDepartmentChange;
     window.removeBulkReviewee = removeBulkReviewee;
     window.renderBulkSelectedReviewees = renderBulkSelectedReviewees;
     window.filterAndUpdateBulkRevieweeSelect = filterAndUpdateBulkRevieweeSelect;
+    window.selectAllAvailableReviewees = selectAllAvailableReviewees;
+    window.filterRevieweeDropdown = filterRevieweeDropdown;
+    
+    // Mode 2 functions
+    window.toggleMode = toggleMode;
+    window.updateModeToggleButton = updateModeToggleButton;
+    window.onMode2RevieweeChange = onMode2RevieweeChange;
+    window.onMode2TargetTypeChange = onMode2TargetTypeChange;
+    window.onMode2DepartmentChange = onMode2DepartmentChange;
+    window.onMode2ReviewerSelect = onMode2ReviewerSelect;
+    window.filterReviewerDropdownMode2 = filterReviewerDropdownMode2;
+    window.selectAllAvailableReviewersMode2 = selectAllAvailableReviewersMode2;
+    window.renderMode2SelectedReviewers = renderMode2SelectedReviewers;
+    window.removeMode2SelectedReviewer = removeMode2SelectedReviewer;
+    window.filterAndUpdateMode2ReviewerSelect = filterAndUpdateMode2ReviewerSelect;
+    window.saveBulkMode2Assignments = saveBulkMode2Assignments;
+    window.showSuccessWithGoogleSheetsOption = showSuccessWithGoogleSheetsOption;
+    
     window.toggleDetailReport = toggleDetailReport;
     window.renderDetailReport = renderDetailReport;
 
