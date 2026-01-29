@@ -203,6 +203,15 @@
       background: #f9f9f9;
     }
 
+    .assignments-table tbody tr.duplicate-row {
+      background: #fff3e0 !important;
+      border-left: 3px solid #ff9800;
+    }
+
+    .assignments-table tbody tr.duplicate-row:hover {
+      background: #ffe0b2 !important;
+    }
+
     .badge {
       display: inline-block;
       padding: 4px 8px;
@@ -546,6 +555,10 @@
             <h3 id="noRevieweeCount">0</h3>
             <p>Chưa có Reviewee</p>
           </div>
+          <div class="stat-card stat-card-danger">
+            <h3 id="duplicateCount">0</h3>
+            <p>Bản ghi trùng lặp</p>
+          </div>
         </div>
 
         <!-- Filters -->
@@ -603,6 +616,7 @@
         <!-- Action Buttons -->
         <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
           <button onclick="openAddModal()" class="btn btn-success">➕ Thêm Assignment</button>
+          <button onclick="deleteDuplicates()" class="btn btn-danger">🗑️ Xoá trùng</button>
           <button onclick="saveAllChanges()" class="btn btn-primary">💾 Lưu tất cả thay đổi</button>
           <button onclick="loadData()" class="btn btn-primary">🔄 Tải lại</button>
           <button onclick="toggleDetailReport()" class="btn btn-info">📊 Báo cáo chi tiết</button>
@@ -852,6 +866,19 @@
       const reviewerEmails = new Set(allAssignments.map(a => a.reviewer_email));
       const noRevieweeCount = allEmployees.filter(emp => !reviewerEmails.has(emp.email)).length;
       document.getElementById('noRevieweeCount').textContent = noRevieweeCount;
+
+      // Tính số bản ghi trùng lặp (từ bản ghi thứ 2 trở đi)
+      const seen = new Map();
+      let duplicateCount = 0;
+      allAssignments.forEach((assignment) => {
+        const key = `${assignment.reviewer_email}|${assignment.reviewee_email}|${assignment.target_type}`;
+        if (seen.has(key)) {
+          duplicateCount++;
+        } else {
+          seen.set(key, true);
+        }
+      });
+      document.getElementById('duplicateCount').textContent = duplicateCount;
     }
 
     function populateFilters() {
@@ -1195,13 +1222,39 @@
       updateBulkActions();
     }
 
+    // Detect duplicate assignments (same reviewer + reviewee + target_type)
+    // Only mark duplicates from 2nd occurrence onwards, keep first record unmarked
+    function detectDuplicates() {
+      const duplicateIndices = new Set();
+      const seen = new Map();
+
+      filteredAssignments.forEach((assignment, index) => {
+        const key = `${assignment.reviewer_email}|${assignment.reviewee_email}|${assignment.target_type}`;
+        
+        if (seen.has(key)) {
+          // Only mark current record (duplicate), not the first occurrence
+          duplicateIndices.add(index);
+        } else {
+          seen.set(key, index);
+        }
+      });
+
+      return duplicateIndices;
+    }
+
     // Render table bình thường (không nhóm)
     function renderTableNormal(tbody) {
+      const duplicateIndices = detectDuplicates();
+      
       filteredAssignments.forEach((assignment, index) => {
         const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
         const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
+        const isDuplicate = duplicateIndices.has(index);
 
         const row = document.createElement('tr');
+        if (isDuplicate) {
+          row.className = 'duplicate-row';
+        }
         row.innerHTML = `
           <td>
             <input type="checkbox" class="checkbox" 
@@ -1242,6 +1295,7 @@
     // Render table nhóm theo Reviewer
     function renderTableGroupedByReviewer(tbody) {
       const groups = {};
+      const duplicateIndices = detectDuplicates();
       
       filteredAssignments.forEach((assignment, index) => {
         const key = assignment.reviewer_email;
@@ -1251,15 +1305,33 @@
         groups[key].push({ assignment, index });
       });
 
-      Object.keys(groups).sort().forEach(reviewerEmail => {
+      let groupId = 0;
+      Object.keys(groups).sort().forEach((reviewerEmail) => {
         const reviewer = allEmployees.find(e => e.email === reviewerEmail);
+        const groupIndices = groups[reviewerEmail].map(g => g.index);
+        const allChecked = groupIndices.every(idx => selectedAssignments.has(idx));
+        const currentGroupId = `group-reviewer-${groupId}`;
         
         // Header row
         const headerRow = document.createElement('tr');
         headerRow.style.background = '#e3f2fd';
         headerRow.style.fontWeight = 'bold';
+        headerRow.style.cursor = 'pointer';
+        headerRow.className = 'group-header';
+        headerRow.onclick = (e) => {
+          if (e.target.type !== 'checkbox') {
+            toggleGroupCollapse(currentGroupId);
+          }
+        };
         headerRow.innerHTML = `
-          <td colspan="8" style="padding: 12px; border-left: 4px solid #2196F3;">
+          <td style="padding: 12px; width: 40px;">
+            <input type="checkbox" class="checkbox group-checkbox" 
+              ${allChecked ? 'checked' : ''}
+              data-group-indices="${groupIndices.join(',')}"
+              onclick="toggleGroupByCheckbox(this); event.stopPropagation();">
+          </td>
+          <td colspan="7" style="padding: 12px; border-left: 4px solid #2196F3; padding-left: 20px;">
+            <span class="group-toggle-icon" data-group-id="${currentGroupId}">▶</span>
             👤 ${reviewer ? reviewer.name : reviewerEmail} (${reviewer ? reviewer.department : '-'}) - ${groups[reviewerEmail].length} người được đánh giá
           </td>
         `;
@@ -1268,8 +1340,14 @@
         // Data rows
         groups[reviewerEmail].forEach(({ assignment, index }) => {
           const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
+          const isDuplicate = duplicateIndices.has(index);
 
           const row = document.createElement('tr');
+          row.className = `group-content ${currentGroupId}`;
+          if (isDuplicate) {
+            row.classList.add('duplicate-row');
+          }
+          row.style.display = 'none'; // Mặc định collapsed
           row.innerHTML = `
             <td>
               <input type="checkbox" class="checkbox" 
@@ -1305,12 +1383,15 @@
           `;
           tbody.appendChild(row);
         });
+        
+        groupId++;
       });
     }
 
     // Render table nhóm theo Reviewee
     function renderTableGroupedByReviewee(tbody) {
       const groups = {};
+      const duplicateIndices = detectDuplicates();
       
       filteredAssignments.forEach((assignment, index) => {
         const key = assignment.reviewee_email;
@@ -1320,15 +1401,33 @@
         groups[key].push({ assignment, index });
       });
 
-      Object.keys(groups).sort().forEach(revieweeEmail => {
+      let groupId = 0;
+      Object.keys(groups).sort().forEach((revieweeEmail) => {
         const reviewee = allEmployees.find(e => e.email === revieweeEmail);
+        const groupIndices = groups[revieweeEmail].map(g => g.index);
+        const allChecked = groupIndices.every(idx => selectedAssignments.has(idx));
+        const currentGroupId = `group-reviewee-${groupId}`;
         
         // Header row
         const headerRow = document.createElement('tr');
         headerRow.style.background = '#f3e5f5';
         headerRow.style.fontWeight = 'bold';
+        headerRow.style.cursor = 'pointer';
+        headerRow.className = 'group-header';
+        headerRow.onclick = (e) => {
+          if (e.target.type !== 'checkbox') {
+            toggleGroupCollapse(currentGroupId);
+          }
+        };
         headerRow.innerHTML = `
-          <td colspan="8" style="padding: 12px; border-left: 4px solid #9C27B0;">
+          <td style="padding: 12px; width: 40px;">
+            <input type="checkbox" class="checkbox group-checkbox" 
+              ${allChecked ? 'checked' : ''}
+              data-group-indices="${groupIndices.join(',')}"
+              onclick="toggleGroupByCheckbox(this); event.stopPropagation();">
+          </td>
+          <td colspan="7" style="padding: 12px; border-left: 4px solid #9C27B0; padding-left: 20px;">
+            <span class="group-toggle-icon" data-group-id="${currentGroupId}">▶</span>
             👥 ${reviewee ? reviewee.name : revieweeEmail} (${reviewee ? reviewee.department : '-'}) - Được ${groups[revieweeEmail].length} người đánh giá
           </td>
         `;
@@ -1337,8 +1436,14 @@
         // Data rows
         groups[revieweeEmail].forEach(({ assignment, index }) => {
           const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
+          const isDuplicate = duplicateIndices.has(index);
 
           const row = document.createElement('tr');
+          row.className = `group-content ${currentGroupId}`;
+          if (isDuplicate) {
+            row.classList.add('duplicate-row');
+          }
+          row.style.display = 'none'; // Mặc định collapsed
           row.innerHTML = `
             <td>
               <input type="checkbox" class="checkbox" 
@@ -1374,6 +1479,8 @@
           `;
           tbody.appendChild(row);
         });
+        
+        groupId++;
       });
     }
 
@@ -1384,6 +1491,40 @@
         selectedAssignments.add(index);
       }
       updateBulkActions();
+    }
+
+    // Toggle collapse/expand for a group
+    function toggleGroupCollapse(groupId) {
+      const contentRows = document.querySelectorAll(`.${groupId}`);
+      const toggleIcon = document.querySelector(`[data-group-id="${groupId}"]`);
+      
+      let isCollapsed = contentRows[0]?.style.display === 'none';
+      
+      contentRows.forEach(row => {
+        row.style.display = isCollapsed ? 'table-row' : 'none';
+      });
+      
+      if (toggleIcon) {
+        toggleIcon.textContent = isCollapsed ? '▼' : '▶';
+      }
+    }
+
+    // Toggle select all in a group by clicking header checkbox
+    function toggleGroupByCheckbox(checkbox) {
+      const groupIndicesStr = checkbox.dataset.groupIndices;
+      const groupIndices = groupIndicesStr.split(',').map(idx => parseInt(idx, 10));
+      const allChecked = groupIndices.every(idx => selectedAssignments.has(idx));
+      
+      if (allChecked) {
+        // Uncheck all items in group
+        groupIndices.forEach(idx => selectedAssignments.delete(idx));
+      } else {
+        // Check all items in group
+        groupIndices.forEach(idx => selectedAssignments.add(idx));
+      }
+      
+      // Re-render table to update all checkboxes UI
+      renderTable();
     }
 
     function toggleSelectAll() {
@@ -1589,6 +1730,53 @@
         allAssignments.splice(indexInAll, 1);
       }
 
+      updateStats();
+      populateFilters();
+      applyFilters();
+    }
+
+    function deleteDuplicates() {
+      const duplicateIndices = detectDuplicates();
+      
+      if (duplicateIndices.size === 0) {
+        alert('Không có bản ghi trùng lặp nào!');
+        return;
+      }
+
+      // Tạo danh sách các bản ghi sẽ xóa
+      const toDelete = Array.from(duplicateIndices).map(i => filteredAssignments[i]);
+      
+      // Tạo message hiển thị danh sách
+      let message = `Tìm thấy ${duplicateIndices.size} bản ghi trùng lặp (từ bản ghi thứ 2 trở đi).\n\n`;
+      message += 'Danh sách sẽ bị xóa:\n';
+      message += '─────────────────────────────\n';
+      
+      toDelete.forEach((assignment, idx) => {
+        const reviewer = allEmployees.find(e => e.email === assignment.reviewer_email);
+        const reviewee = allEmployees.find(e => e.email === assignment.reviewee_email);
+        message += `${idx + 1}. ${reviewer?.name || assignment.reviewer_email} → ${reviewee?.name || assignment.reviewee_email} (${assignment.target_type})\n`;
+      });
+      
+      message += '─────────────────────────────\n';
+      message += '\nBạn có chắc muốn xóa các bản ghi này?';
+
+      if (!confirm(message)) return;
+
+      // Xóa các bản ghi trùng
+      toDelete.forEach(assignment => {
+        const indexInAll = allAssignments.findIndex(a => 
+          a.reviewer_email === assignment.reviewer_email &&
+          a.reviewee_email === assignment.reviewee_email &&
+          a.target_type === assignment.target_type
+        );
+        
+        if (indexInAll !== -1) {
+          allAssignments.splice(indexInAll, 1);
+        }
+      });
+
+      alert(`Đã xóa ${toDelete.length} bản ghi trùng lặp!`);
+      selectedAssignments.clear();
       updateStats();
       populateFilters();
       applyFilters();
