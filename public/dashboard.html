@@ -304,7 +304,7 @@
     <div class="nav-buttons">
       <a href="welcome.html" class="nav-btn">🏠 Trang chủ</a>
       <a href="reports.html" class="nav-btn" id="reportsLink" style="display: none;">📊 Báo cáo</a>
-      <a href="assignments-manager.html" class="nav-btn" id="assignmentsLink" style="display: none;">🎯 Quản lý Assignments</a>
+      <a href="assignments-manager.html" class="nav-btn" id="assignmentsLink" style="display: none;">🎯 Quản lý Đánh giá</a>
       <button class="nav-btn logout" onclick="logout()">🚪 Đăng xuất</button>
     </div>
   </div>
@@ -386,7 +386,7 @@
       }
     };
 
-    // Load assignments
+    // Load danh sách đánh giá
     async function loadAssignments() {
       const userData = checkAuth();
       if (!userData) return;
@@ -404,7 +404,7 @@
           displayAssignments(result.assignments);
           updateStats(result.assignments);
         } else {
-          throw new Error(result.message || 'Không thể tải danh sách assignments');
+          throw new Error(result.message || 'Không thể tải danh sách đánh giá');
         }
 
       } catch (error) {
@@ -425,7 +425,7 @@
       }
     }
 
-    // Hiển thị assignments
+    // Hiển thị danh sách đánh giá
     function displayAssignments(assignments) {
       const container = document.getElementById('assignments-container');
 
