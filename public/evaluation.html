@@ -51,11 +51,13 @@
     .loading { text-align: center; padding: 30px; color: #666; }
     .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
     .success { background: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    .back-button { background: none; border: none; color: #667eea; font-size: 18px; cursor: pointer; padding: 8px; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <button class="back-button" onclick="window.location.href='dashboard.html'" title="Quay lại Dashboard">← Quay lại</button>
       <div>
         <h2 style="margin:0">Đánh giá</h2>
         <div id="revieweeInfo" class="info"></div>
@@ -98,6 +100,10 @@
         localStorage.setItem('app_version', CURRENT_VERSION);
       }
     })();
+
+    // Kiểm tra mode view (readonly)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isViewMode = urlParams.get('mode') === 'view';
   </script>
   
   <script type="module">
@@ -122,6 +128,28 @@
     }
 
     function getAssignment() {
+      // Nếu mode view, lấy từ URL query parameters
+      if (isViewMode) {
+        const reviewer_email = urlParams.get('reviewer_email');
+        const reviewee_email = urlParams.get('reviewee_email');
+        const target_type = urlParams.get('target_type');
+        
+        if (reviewer_email && reviewee_email && target_type) {
+          return {
+            reviewer_email: reviewer_email,
+            reviewee_email: reviewee_email,
+            target_type: target_type,
+            reviewee: {
+              email: reviewee_email,
+              name: '(Đang tải...)',
+              department: '',
+              position: ''
+            }
+          };
+        }
+      }
+      
+      // Nếu không phải mode view, lấy từ sessionStorage
       const raw = sessionStorage.getItem('currentAssignment');
       if (!raw) return null;
       try { return JSON.parse(raw); } catch { return null; }
@@ -268,7 +296,7 @@
           return;
         }
         showSuccess('Đã lưu đánh giá thành công.');
-        setTimeout(() => { window.location.href = 'welcome.html'; }, 800);
+        setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
       } catch (err) {
         showError(err.message || 'Có lỗi xảy ra');
       }
@@ -281,20 +309,39 @@
       const assignment = getAssignment();
       if (!assignment) {
         showError('Không có assignment trong phiên. Quay lại danh sách.');
-        setTimeout(() => { window.location.href = 'welcome.html'; }, 800);
+        setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
         return;
       }
+
+      // Hiển thị notifier nếu ở chế độ view
+      if (isViewMode) {
+        const container = document.querySelector('.container');
+        const viewIndicator = document.createElement('div');
+        viewIndicator.style.cssText = 'background: #e3f2fd; border: 1px solid #2196f3; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #1565c0; display: flex; align-items: center; gap: 8px;';
+        viewIndicator.innerHTML = `<span>👁️</span><strong>Chế độ xem - Không thể chỉnh sửa</strong>`;
+        container.insertBefore(viewIndicator, container.firstChild.nextSibling);
+      }
+
       renderAssignmentInfo(assignment);
       await loadCriteria(assignment);
 
       // Check xem đã có evaluation trước đó không (re-evaluation case)
       if (assignment.reviewer_email && assignment.reviewee_email && assignment.target_type) {
         try {
+          console.log('DEBUG: Calling getEvaluation with:', {
+            reviewer_email: assignment.reviewer_email,
+            reviewee_email: assignment.reviewee_email,
+            target_type: assignment.target_type,
+            isViewMode: isViewMode
+          });
+          
           const result = await window.SIRA_API.getEvaluation(
             assignment.reviewer_email,
             assignment.reviewee_email,
             assignment.target_type
           );
+          
+          console.log('DEBUG: getEvaluation result:', result);
           
           if (result.success && result.exists) {
             console.log('Found existing evaluation:', result);
@@ -323,10 +370,30 @@
             indicator.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #856404;';
             indicator.innerHTML = `<strong>📝 Đang chỉnh sửa đánh giá trước</strong><br>Bạn đã đánh giá người này vào ${result.evaluation_date || 'trước đó'}. Gửi lại sẽ cập nhật đánh giá.`;
             container.insertBefore(indicator, container.firstChild.nextSibling);
+          } else {
+            console.log('DEBUG: No existing evaluation found or API error');
           }
         } catch (err) {
           console.error('Error loading existing evaluation:', err);
           // Không hiển thị lỗi cho user, tiếp tục với form trống
+        }
+      }
+
+      // Nếu mode view, disable tất cả inputs và ẩn submit button
+      if (isViewMode) {
+        // Disable tất cả input radio
+        const radios = document.querySelectorAll('input[type="radio"]');
+        radios.forEach(radio => radio.disabled = true);
+
+        // Disable textarea comments
+        const comments = document.getElementById('comments');
+        if (comments) comments.disabled = true;
+
+        // Ẩn button submit, chỉ giữ "Quay lại"
+        const actions = document.querySelector('.actions');
+        if (actions) {
+          const submitBtn = actions.querySelector('button[type="submit"]');
+          if (submitBtn) submitBtn.style.display = 'none';
         }
       }
     })();

@@ -220,7 +220,7 @@
         </div>
       </div>
       <div class="actions">
-        <button class="btn btn-ghost" onclick="location.href='welcome.html'">🏠 Dashboard</button>
+        <button class="btn btn-ghost" onclick="location.href='dashboard.html'">🏠 Dashboard</button>
         <button class="btn btn-main" onclick="location.href='index.html'">🔄 Đăng nhập khác</button>
       </div>
     </header>
@@ -348,7 +348,7 @@
       const role = (parsed?.employee?.role || sessionStorage.getItem('userRole') || 'USER').toUpperCase();
       sessionStorage.setItem('userRole', role);
       if (role !== 'ADMIN') {
-        window.location.href = 'welcome.html';
+        window.location.href = 'dashboard.html';
         return null;
       }
       return { ...parsed, employee: { ...parsed.employee, role } };

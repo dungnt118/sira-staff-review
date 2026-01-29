@@ -34,6 +34,11 @@
       margin: 0;
       color: #333;
     }
+
+    .sira-logo-header {
+      height: 32px;
+      width: auto;
+    }
     
     .nav-buttons {
       display: flex;
@@ -203,9 +208,10 @@
       text-transform: uppercase;
       transition: background 0.3s;
       text-decoration: none;
-      display: inline-block;
+      display: block;
       text-align: center;
       margin-top: 10px;
+      box-sizing: border-box;
     }
     
     .btn-review {
@@ -230,6 +236,34 @@
       background: #ccc;
       color: #666;
       cursor: not-allowed;
+    }
+
+    .evaluation-type-chip {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 8px;
+      color: white;
+    }
+
+    .evaluation-type-employee {
+      background: #2196F3;
+    }
+
+    .evaluation-type-manager {
+      background: #FF9800;
+    }
+
+    .evaluation-period-chip {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+      background: #9C27B0;
     }
     
     .empty-state {
@@ -303,9 +337,12 @@
 
 <body>
   <div class="header">
-    <h1>📋 Dashboard - Nhiệm vụ đánh giá</h1>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <img src="sira-logo.png" alt="SIRA Logo" class="sira-logo-header">
+      <h1>📋 Nhiệm vụ</h1>
+    </div>
     <div class="nav-buttons">
-      <a href="welcome.html" class="nav-btn">🏠 Trang chủ</a>
+      <a href="dashboard.html" class="nav-btn">🏠 Trang chủ</a>
       <a href="reports.html" class="nav-btn" id="reportsLink" style="display: none;">📊 Báo cáo</a>
       <a href="assignments-manager.html" class="nav-btn" id="assignmentsLink" style="display: none;">🎯 Quản lý Đánh giá</a>
       <button class="nav-btn logout" onclick="logout()">🚪 Đăng xuất</button>
@@ -492,8 +529,8 @@
         ` : '<p style="color: #f44336;">⚠️ Không tìm thấy thông tin nhân viên</p>';
 
         const actionButton = isCompleted ? `
-          <button class="action-button btn-view" onclick="alert('Tính năng xem kết quả đang được phát triển')">
-            👁️ Xem kết quả đã nộp
+          <button class="action-button btn-view" onclick="window.location.href='evaluation.html?mode=view&reviewee_email=${encodeURIComponent(assignment.reviewee_email)}&target_type=${assignment.target_type}&reviewer_email=${encodeURIComponent(assignment.reviewer_email)}'">
+            � Xem kết quả đã nộp
           </button>
         ` : `
           <a href="evaluation.html?reviewee_email=${encodeURIComponent(assignment.reviewee_email)}&target_type=${assignment.target_type}" class="action-button btn-review">
@@ -516,16 +553,18 @@
               <h4>Chi tiết phân công</h4>
               <div class="info-row">
                 <span class="info-label">Loại đánh giá:</span>
-                <span class="info-value">${targetTypeDisplay} (${assignment.target_type})</span>
+                <span class="info-value">
+                  <span class="evaluation-type-chip evaluation-type-${assignment.target_type === 'EMPLOYEE' ? 'employee' : 'manager'}">
+                    ${targetTypeDisplay}
+                  </span>
+                </span>
               </div>
               <div class="info-row">
                 <span class="info-label">Kỳ đánh giá:</span>
-                <span class="info-value">${assignment.period || '2025'}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Trạng thái:</span>
-                <span class="info-value">${assignment.status}</span>
-              </div>
+                <span class="info-value">
+                  <span class="evaluation-period-chip">${assignment.period || '2025'}</span>
+                </span>
+              </div>              
             </div>
 
             ${actionButton}

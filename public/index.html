@@ -40,6 +40,14 @@
       color: #666;
       margin-bottom: 30px;
     }
+
+    .sira-logo {
+      height: 80px;
+      margin-bottom: 15px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
     
     #login {
       background: #4285f4;
@@ -129,7 +137,7 @@
 
 <body>
   <div class="container">
-    <h1>🎯 SIRA</h1>
+    <img src="sira-logo.png" alt="SIRA Logo" class="sira-logo">
     <div class="subtitle">Staff Information & Review Application</div>
     
     <button id="login">
@@ -277,7 +285,7 @@
 
           // Chuyển hướng sau 1.5 giây
           setTimeout(() => {
-            window.location.href = 'welcome.html';
+            window.location.href = 'dashboard.html';
           }, 1500);
         } else {
           showStatus(`Email ${user.email} không có trong hệ thống nhân viên.\nBạn không có quyền truy cập ứng dụng này.`, 'error');
@@ -325,7 +333,7 @@
           if (userData.employee) {
             // Đã có thông tin nhân viên, chuyển hướng (không set loading, auto-redirect là silent)
             authHandled = true;
-            window.location.href = 'welcome.html';
+            window.location.href = 'dashboard.html';
             return;
           }
         }
@@ -351,7 +359,7 @@
             authHandled = true;
             
             // Chuyển hướng trực tiếp (silent redirect)
-            window.location.href = 'welcome.html';
+            window.location.href = 'dashboard.html';
           } else {
             // Không tìm thấy trong hệ thống
             showStatus(`Email ${user.email} không có trong hệ thống nhân viên.\nBạn không có quyền truy cập ứng dụng này.`, 'error');

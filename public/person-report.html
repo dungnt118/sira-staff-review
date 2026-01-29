@@ -131,7 +131,7 @@
       const parsed = JSON.parse(raw);
       const role = (parsed?.employee?.role || sessionStorage.getItem('userRole') || 'USER').toUpperCase();
       sessionStorage.setItem('userRole', role);
-      if (role !== 'ADMIN') { window.location.href = 'welcome.html'; return null; }
+      if (role !== 'ADMIN') { window.location.href = 'dashboard.html'; return null; }
       return { ...parsed, employee: { ...parsed.employee, role } };
     }
 
