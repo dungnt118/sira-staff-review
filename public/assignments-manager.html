@@ -1151,7 +1151,7 @@
       const container = document.getElementById('selectedRevieweesContainer');
 
       const selectedCount = bulkSelectedReviewees.size;
-      count.textContent = `${selectedCount} Reviewee đã chọn`;
+      count.textContent = `${selectedCount} Người được đánh giá đã chọn`;
 
       if (selectedCount === 0) {
         list.style.display = 'none';
@@ -1253,7 +1253,7 @@
       // Employees without reviewer
       const noReviewerEmps = allEmployees.filter(emp => !revieweeEmails.has(emp.email));
       const noReviewerHtml = noReviewerEmps.length === 0 
-        ? '<p style="color: #999;">Tất cả nhân viên đều có reviewer</p>'
+        ? '<p style="color: #999;">Tất cả nhân viên đều có người đánh giá</p>'
         : noReviewerEmps.map(emp => `
           <div style="padding: 8px; border-bottom: 1px solid #eee;">
             <strong>${emp.name}</strong> <br>
@@ -1264,7 +1264,7 @@
       // Employees without reviewee
       const noRevieweeEmps = allEmployees.filter(emp => !reviewerEmails.has(emp.email));
       const noRevieweeHtml = noRevieweeEmps.length === 0 
-        ? '<p style="color: #999;">Tất cả nhân viên đều có reviewee</p>'
+        ? '<p style="color: #999;">Tất cả nhân viên đều được giao đánh giá</p>'
         : noRevieweeEmps.map(emp => `
           <div style="padding: 8px; border-bottom: 1px solid #eee;">
             <strong>${emp.name}</strong> <br>
@@ -1281,7 +1281,7 @@
       tbody.innerHTML = '';
 
       if (filteredAssignments.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #999;">Không có assignment nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #999;">Không có đánh giá nào</td></tr>';
         return;
       }
 
@@ -1659,7 +1659,7 @@
       
       if (count > 0) {
         bulkActions.style.display = 'flex';
-        document.getElementById('selectedCount').textContent = `${count} assignment đã chọn`;
+        document.getElementById('selectedCount').textContent = `${count} đánh giá đã chọn`;
       } else {
         bulkActions.style.display = 'none';
       }
@@ -1667,7 +1667,7 @@
 
     function openAddModal() {
       editingIndex = -1;
-      document.getElementById('modalTitle').textContent = 'Thêm Assignment';
+      document.getElementById('modalTitle').textContent = 'Thêm Đánh giá';
       
       // Show bulk mode (multi-select)
       document.getElementById('singleMode').style.display = 'none';
@@ -1700,7 +1700,7 @@
       editingIndex = index;
       const assignment = filteredAssignments[index];
       
-      document.getElementById('modalTitle').textContent = 'Sửa Assignment';
+      document.getElementById('modalTitle').textContent = 'Sửa Đánh giá';
       
       // Show single mode
       document.getElementById('singleMode').style.display = 'block';
@@ -1759,7 +1759,7 @@
 
       // Validation
       if (reviewerEmail === revieweeEmail) {
-        document.getElementById('modalError').textContent = 'Reviewer và Reviewee không được trùng nhau!';
+        document.getElementById('modalError').textContent = 'Người đánh giá và Người được đánh giá không được trùng nhau!';
         document.getElementById('modalError').style.display = 'block';
         return;
       }
@@ -1780,7 +1780,7 @@
         );
 
         if (isDuplicate) {
-          document.getElementById('modalError').textContent = 'Assignment này đã tồn tại!';
+          document.getElementById('modalError').textContent = 'Đánh giá này đã tồn tại!';
           document.getElementById('modalError').style.display = 'block';
           return;
         }
@@ -1812,13 +1812,13 @@
 
       // Validation
       if (!reviewerEmail || !targetType) {
-        document.getElementById('modalError').textContent = 'Vui lòng chọn Reviewer và Loại đánh giá!';
+        document.getElementById('modalError').textContent = 'Vui lòng chọn Người đánh giá và Loại đánh giá!';
         document.getElementById('modalError').style.display = 'block';
         return;
       }
 
       if (bulkSelectedReviewees.size === 0) {
-        document.getElementById('modalError').textContent = 'Vui lòng chọn ít nhất 1 Reviewee!';
+        document.getElementById('modalError').textContent = 'Vui lòng chọn ít nhất 1 Người được đánh giá!';
         document.getElementById('modalError').style.display = 'block';
         return;
       }
@@ -1916,7 +1916,7 @@
     }
 
     function bulkDelete() {
-      if (!confirm(`Bạn có chắc muốn xóa ${selectedAssignments.size} assignment đã chọn?`)) return;
+      if (!confirm(`Bạn có chắc muốn xóa ${selectedAssignments.size} đánh giá đã chọn?`)) return;
 
       const toDelete = Array.from(selectedAssignments).map(i => filteredAssignments[i]);
       
