@@ -1558,6 +1558,15 @@
       document.getElementById('singleMode').style.display = 'none';
       document.getElementById('bulkMode').style.display = 'block';
       
+      // Disable required validation for hidden single mode fields
+      document.getElementById('reviewerSelectSingle').removeAttribute('required');
+      document.getElementById('revieweeSelectSingle').removeAttribute('required');
+      document.getElementById('targetTypeSelectSingle').removeAttribute('required');
+      
+      // Enable required validation for bulk mode fields
+      document.getElementById('reviewerSelectBulk').setAttribute('required', 'required');
+      document.getElementById('targetTypeSelectBulk').setAttribute('required', 'required');
+      
       // Reset bulk mode
       bulkSelectedReviewer = '';
       bulkSelectedTargetType = '';
@@ -1581,6 +1590,15 @@
       // Show single mode
       document.getElementById('singleMode').style.display = 'block';
       document.getElementById('bulkMode').style.display = 'none';
+      
+      // Enable required validation for single mode fields
+      document.getElementById('reviewerSelectSingle').setAttribute('required', 'required');
+      document.getElementById('revieweeSelectSingle').setAttribute('required', 'required');
+      document.getElementById('targetTypeSelectSingle').setAttribute('required', 'required');
+      
+      // Disable required validation for hidden bulk mode fields
+      document.getElementById('reviewerSelectBulk').removeAttribute('required');
+      document.getElementById('targetTypeSelectBulk').removeAttribute('required');
       
       document.getElementById('reviewerSelectSingle').value = assignment.reviewer_email;
       document.getElementById('revieweeSelectSingle').value = assignment.reviewee_email;
