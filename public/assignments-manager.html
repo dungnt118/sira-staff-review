@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Quản lý Assignments - Admin</title>
+  <title>Quản lý Đánh giá - Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * {
@@ -529,7 +529,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎯 Quản lý Assignments</h1>
+      <h1>🎯 Quản lý Đánh giá</h1>
       <div class="nav-buttons">
         <a href="dashboard.html" class="btn btn-primary">← Dashboard</a>
         <button onclick="logout()" class="btn btn-danger">Đăng xuất</button>
@@ -547,7 +547,7 @@
         <div class="stats">
           <div class="stat-card">
             <h3 id="totalAssignments">0</h3>
-            <p>Tổng số Assignments</p>
+            <p>Tổng số Đánh giá</p>
           </div>
           <div class="stat-card">
             <h3 id="totalEmployees">0</h3>
@@ -563,11 +563,11 @@
           </div>
           <div class="stat-card stat-card-warning">
             <h3 id="noReviewerCount">0</h3>
-            <p>Chưa có Reviewer</p>
+            <p>Chưa có Người đánh giá</p>
           </div>
           <div class="stat-card stat-card-info">
             <h3 id="noRevieweeCount">0</h3>
-            <p>Chưa có Reviewee</p>
+            <p>Chưa có Người được đánh giá</p>
           </div>
           <div class="stat-card stat-card-danger">
             <h3 id="duplicateCount">0</h3>
@@ -575,24 +575,24 @@
           </div>
           <div class="stat-card stat-card-success">
             <h3 id="employeeCount">0</h3>
-            <p>Assignment Nhân viên</p>
+            <p>Đánh giá Nhân viên</p>
           </div>
           <div class="stat-card stat-card-warning">
             <h3 id="managerCount">0</h3>
-            <p>Assignment Quản lý</p>
+            <p>Đánh giá Quản lý</p>
           </div>
         </div>
 
         <!-- Filters -->
         <div class="filters">
           <div class="filter-group">
-            <label>Lọc theo Reviewer</label>
+            <label>Lọc theo Người đánh giá</label>
             <select id="filterReviewer" onchange="applyFilters()">
               <option value="">-- Tất cả --</option>
             </select>
           </div>
           <div class="filter-group">
-            <label>Lọc theo Reviewee</label>
+            <label>Lọc theo Người được đánh giá</label>
             <select id="filterReviewee" onchange="applyFilters()">
               <option value="">-- Tất cả --</option>
             </select>
@@ -617,8 +617,8 @@
             <label>Nhóm dữ liệu</label>
             <select id="groupByMode" onchange="applyFilters()">
               <option value="none">Không nhóm</option>
-              <option value="reviewer">Nhóm theo Reviewer</option>
-              <option value="reviewee">Nhóm theo Reviewee</option>
+              <option value="reviewer">Nhóm theo Người đánh giá</option>
+              <option value="reviewee">Nhóm theo Người được đánh giá</option>
             </select>
           </div>
           <div class="filter-group">
@@ -629,7 +629,7 @@
 
         <!-- Bulk Actions -->
         <div class="bulk-actions" style="display: none;" id="bulkActions">
-          <span id="selectedCount">0 assignment đã chọn</span>
+          <span id="selectedCount">0 đánh giá đã chọn</span>
           <button onclick="bulkDelete()" class="btn btn-danger btn-sm">Xóa</button>
           <button onclick="bulkUpdateStatus('COMPLETED')" class="btn btn-success btn-sm">Đánh dấu hoàn thành</button>
           <button onclick="bulkUpdateStatus('PENDING')" class="btn btn-primary btn-sm">Đánh dấu chờ</button>
@@ -637,7 +637,7 @@
 
         <!-- Action Buttons -->
         <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-          <button onclick="openAddModal()" class="btn btn-success">➕ Thêm Assignment</button>
+          <button onclick="openAddModal()" class="btn btn-success">➕ Thêm Đánh giá</button>
           <button onclick="deleteDuplicates()" class="btn btn-danger">🗑️ Xoá trùng</button>
           <button onclick="saveAllChanges()" class="btn btn-primary">💾 Lưu tất cả thay đổi</button>
           <button onclick="loadData()" class="btn btn-primary">🔄 Tải lại</button>
@@ -651,11 +651,11 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
               <div>
-                <h4>👤 Nhân viên chưa có Reviewer (chưa ai review)</h4>
+                <h4>👤 Nhân viên chưa có Người đánh giá (chưa ai đánh giá)</h4>
                 <div id="noReviewerList" style="background: white; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;"></div>
               </div>
               <div>
-                <h4>👥 Nhân viên chưa có Reviewee (chưa review ai)</h4>
+                <h4>👥 Nhân viên chưa được giao đánh giá ai</h4>
                 <div id="noRevieweeList" style="background: white; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;"></div>
               </div>
             </div>
@@ -670,9 +670,9 @@
                 <th style="width: 40px;">
                   <input type="checkbox" id="selectAll" class="checkbox" onchange="toggleSelectAll()">
                 </th>
-                <th style="width: 180px;">Reviewer</th>
+                <th style="width: 180px;">Người đánh giá</th>
                 <th style="width: 100px;">Phòng ban</th>
-                <th style="width: 180px;">Reviewee</th>
+                <th style="width: 180px;">Người được đánh giá</th>
                 <th style="width: 100px;">Phòng ban</th>
                 <th style="width: 100px;">Loại ĐG</th>
                 <th style="width: 100px;">Trạng thái</th>
@@ -692,7 +692,7 @@
   <div id="assignmentModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 id="modalTitle">Thêm Assignment</h2>
+        <h2 id="modalTitle">Thêm Đánh giá</h2>
         <span class="close" onclick="closeModal()">&times;</span>
       </div>
       
@@ -702,17 +702,17 @@
         <div id="singleMode" style="display: none;">
           <!-- Single mode: edit existing -->
           <div class="form-group">
-            <label>Reviewer (người đánh giá) *</label>
+            <label>Người đánh giá *</label>
             <select id="reviewerSelectSingle" required>
-              <option value="">-- Chọn reviewer --</option>
+              <option value="">-- Chọn người đánh giá --</option>
             </select>
             <div class="info-text" id="reviewerInfoSingle"></div>
           </div>
 
           <div class="form-group">
-            <label>Reviewee (người được đánh giá) *</label>
+            <label>Người được đánh giá *</label>
             <select id="revieweeSelectSingle" required>
-              <option value="">-- Chọn reviewee --</option>
+              <option value="">-- Chọn người được đánh giá --</option>
             </select>
             <div class="info-text" id="revieweeInfoSingle"></div>
           </div>
@@ -738,9 +738,9 @@
         <div id="bulkMode">
           <!-- Bulk mode: add multiple reviewees -->
           <div class="form-group">
-            <label>Reviewer (người đánh giá) *</label>
+            <label>Người đánh giá *</label>
             <select id="reviewerSelectBulk" required onchange="onBulkReviewerChange()">
-              <option value="">-- Chọn reviewer --</option>
+              <option value="">-- Chọn người đánh giá --</option>
             </select>
             <div class="info-text" id="reviewerInfoBulk"></div>
           </div>
@@ -762,11 +762,11 @@
           </div>
 
           <div class="form-group">
-            <label>Chọn Reviewee (người được đánh giá) *</label>
+            <label>Chọn Người được đánh giá *</label>
             <div class="searchable-select-wrapper">
-              <input type="text" id="revieweeSearchBulk" placeholder="🔍 Tìm kiếm reviewee..." class="search-input" onkeyup="filterRevieweeDropdown()">
+              <input type="text" id="revieweeSearchBulk" placeholder="🔍 Tìm kiếm người được đánh giá..." class="search-input" onkeyup="filterRevieweeDropdown()">
               <select id="revieweeSelectBulk" onchange="onBulkRevieweeSelect()" size="5">
-                <option value="">-- Chọn reviewee để thêm --</option>
+                <option value="">-- Chọn người được đánh giá để thêm --</option>
               </select>
             </div>
             <div style="margin-top: 8px;">
@@ -776,7 +776,7 @@
 
           <!-- Selected reviewees list -->
           <div class="selected-reviewees-list" id="selectedRevieweesList" style="display: none;">
-            <h4 id="selectedRevieweesCount">0 Reviewee đã chọn</h4>
+            <h4 id="selectedRevieweesCount">0 Người được đánh giá đã chọn</h4>
             <div id="selectedRevieweesContainer"></div>
           </div>
         </div>
