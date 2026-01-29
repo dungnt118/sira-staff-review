@@ -52,23 +52,25 @@
     .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
     .success { background: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
     .back-button { background: none; border: none; color: #667eea; font-size: 18px; cursor: pointer; padding: 8px; font-weight: 600; }
+    #evaluationTitle { margin: 0; color: #333; font-size: 28px; font-weight: 700; flex: 1; text-align: center; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
       <button class="back-button" onclick="window.location.href='dashboard.html'" title="Quay lại Dashboard">← Quay lại</button>
+      <h1 id="evaluationTitle"></h1>
+    </div>
+
+    <div class="header">
       <div>
-        <h2 style="margin:0">Đánh giá</h2>
+        <h3 style="margin:0">Người được đánh giá</h3>
         <div id="revieweeInfo" class="info"></div>
-      </div>
-      <div>
-        <span id="targetBadge" class="badge"></span>
       </div>
     </div>
 
-    <div id="statusBox" class="error" style="display:none"></div>
-    <div id="loading" class="loading">Đang tải tiêu chí...</div>
+    <div id="messageBox" style="margin-bottom: 16px;"></div>
+
     <form id="form" style="display:none">
       <div id="criteriaContainer"></div>
 
@@ -107,12 +109,25 @@
   </script>
   
   <script type="module">
-    const statusBox = document.getElementById('statusBox');
-    const loading = document.getElementById('loading');
+    const messageBox = document.getElementById('messageBox');
     const formEl = document.getElementById('form');
     const criteriaContainer = document.getElementById('criteriaContainer');
     const revieweeInfo = document.getElementById('revieweeInfo');
-    const targetBadge = document.getElementById('targetBadge');
+    const evaluationTitle = document.getElementById('evaluationTitle');
+
+    // Tạo statusBox và loading động
+    const statusBox = document.createElement('div');
+    statusBox.id = 'statusBox';
+    statusBox.className = 'error';
+    statusBox.style.display = 'none';
+    messageBox.appendChild(statusBox);
+
+    const loading = document.createElement('div');
+    loading.id = 'loading';
+    loading.className = 'loading';
+    loading.textContent = 'Đang tải tiêu chí...';
+    loading.style.display = 'none';
+    messageBox.appendChild(loading);
 
     function showError(msg) {
       statusBox.textContent = msg;
@@ -141,7 +156,7 @@
             target_type: target_type,
             reviewee: {
               email: reviewee_email,
-              name: '(Đang tải...)',
+              name: '',
               department: '',
               position: ''
             }
@@ -155,15 +170,29 @@
       try { return JSON.parse(raw); } catch { return null; }
     }
 
+    async function loadRevieweeInfo(assignment) {
+      try {
+        const result = await window.SIRA_API.lookupEmployee(assignment.reviewee_email);
+        console.log('loadRevieweeInfo result:', result);
+        if (result.success && result.employee) {
+          assignment.reviewee.name = result.employee.name || assignment.reviewee.email;
+          assignment.reviewee.department = result.employee.department || '';
+          assignment.reviewee.position = result.employee.position || '';
+          console.log('Reviewee info loaded:', assignment.reviewee);
+        }
+      } catch (err) {
+        console.error('Error loading reviewee info:', err);
+        assignment.reviewee.name = assignment.reviewee.email;
+      }
+    }
+
     function renderAssignmentInfo(assignment) {
       const r = assignment.reviewee;
       revieweeInfo.textContent = `${r.name} • ${r.department} • ${r.position} • ${r.email}`;
       if (assignment.target_type === 'EMPLOYEE') {
-        targetBadge.textContent = 'Nhân viên';
-        targetBadge.className = 'badge emp';
+        evaluationTitle.textContent = 'Bộ đánh giá Nhân viên';
       } else {
-        targetBadge.textContent = 'Quản lý';
-        targetBadge.className = 'badge mgr';
+        evaluationTitle.textContent = 'Bộ đánh giá Quản lý';
       }
     }
 
@@ -228,12 +257,14 @@
           return;
         }
         renderCriteria(data.criteria, assignment.target_type);
-        loading.style.display = 'none';
         formEl.style.display = 'block';
       } catch (err) {
         console.error(err);
         showError('Lỗi tải tiêu chí: ' + err.message);
+      } finally {
+        loading.style.display = 'none';
       }
+      
     }
 
     function collectScores() {
@@ -312,14 +343,16 @@
         setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
         return;
       }
-
+      // Tải thông tin người được đánh giá nếu ở chế độ view
+      if (isViewMode) {
+        await loadRevieweeInfo(assignment);
+      }
       // Hiển thị notifier nếu ở chế độ view
       if (isViewMode) {
-        const container = document.querySelector('.container');
         const viewIndicator = document.createElement('div');
         viewIndicator.style.cssText = 'background: #e3f2fd; border: 1px solid #2196f3; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #1565c0; display: flex; align-items: center; gap: 8px;';
-        viewIndicator.innerHTML = `<span>👁️</span><strong>Chế độ xem - Không thể chỉnh sửa</strong>`;
-        container.insertBefore(viewIndicator, container.firstChild.nextSibling);
+        viewIndicator.innerHTML = `<span>🔍</span><strong>Chế độ xem - Không thể chỉnh sửa</strong>`;
+        messageBox.insertBefore(viewIndicator, messageBox.firstChild);
       }
 
       renderAssignmentInfo(assignment);
@@ -365,11 +398,10 @@
             }
 
             // Show re-evaluation indicator
-            const container = document.querySelector('.container');
             const indicator = document.createElement('div');
             indicator.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #856404;';
             indicator.innerHTML = `<strong>📝 Đang chỉnh sửa đánh giá trước</strong><br>Bạn đã đánh giá người này vào ${result.evaluation_date || 'trước đó'}. Gửi lại sẽ cập nhật đánh giá.`;
-            container.insertBefore(indicator, container.firstChild.nextSibling);
+            messageBox.appendChild(indicator);
           } else {
             console.log('DEBUG: No existing evaluation found or API error');
           }
