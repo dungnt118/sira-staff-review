@@ -102,6 +102,23 @@
   </div>
 
   <script src="js/config.js"></script>
+  
+  <!-- Auto cache busting -->
+  <script>
+    (function() {
+      const CURRENT_VERSION = window.SIRA_CONFIG.VERSION;
+      const storedVersion = localStorage.getItem('app_version');
+      
+      if (storedVersion && storedVersion !== CURRENT_VERSION) {
+        console.log('🔄 Phát hiện phiên bản mới (' + CURRENT_VERSION + '), đang làm mới cache...');
+        localStorage.setItem('app_version', CURRENT_VERSION);
+        location.reload(true);
+      } else {
+        localStorage.setItem('app_version', CURRENT_VERSION);
+      }
+    })();
+  </script>
+  
   <script>
     function getParam(name) {
       const url = new URL(window.location.href);

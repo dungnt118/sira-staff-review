@@ -344,6 +344,22 @@
   <!-- Load config first -->
   <script src="js/config.js"></script>
   
+  <!-- Auto cache busting: Tự động reload nếu phát hiện version mới -->
+  <script>
+    (function() {
+      const CURRENT_VERSION = window.SIRA_CONFIG.VERSION;
+      const storedVersion = localStorage.getItem('app_version');
+      
+      if (storedVersion && storedVersion !== CURRENT_VERSION) {
+        console.log('🔄 Phát hiện phiên bản mới (' + CURRENT_VERSION + '), đang làm mới cache...');
+        localStorage.setItem('app_version', CURRENT_VERSION);
+        location.reload(true);
+      } else {
+        localStorage.setItem('app_version', CURRENT_VERSION);
+      }
+    })();
+  </script>
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";

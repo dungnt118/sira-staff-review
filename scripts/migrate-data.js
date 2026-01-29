@@ -3,6 +3,7 @@ const { google } = require('googleapis');
 const { GoogleAuth } = require('google-auth-library');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
 /**
  * Script để migrate dữ liệu từ file Excel DS NHÂN SỰ.xlsx 
@@ -10,7 +11,7 @@ const path = require('path');
  */
 class DataMigrator {
   constructor() {
-    this.spreadsheetId = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
+    this.spreadsheetId = config.SPREADSHEET_ID;
     this.serviceAccountPath = '../functions/serviceAccount.json';
     this.sheets = null;
   }

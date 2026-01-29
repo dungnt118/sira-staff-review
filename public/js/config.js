@@ -1,5 +1,8 @@
 // Configuration cho Staff Reviewer App
 window.SIRA_CONFIG = {
+  // VERSION: Tăng số này mỗi khi deploy để tự động clear cache cho user
+  VERSION: '1.0.1',
+  
   // API Base URL - ưu tiên emulator khi đang chạy hosting emulator (port 5000) hoặc localhost/127
   // Emulator: hosting 5000, functions 5001
   API_BASE_URL: (['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.port === '5000')
@@ -202,6 +205,15 @@ window.SIRA_API = {
     }
 
     return response.json();
+  }
+};
+
+// Helper utilities
+window.SIRA_UTILS = {
+  // Thêm version vào URL để cache busting
+  versionedUrl: function(url) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}v=${window.SIRA_CONFIG.VERSION}`;
   }
 };
 

@@ -2,10 +2,11 @@ const { GoogleAuth } = require('google-auth-library');
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
-// Google Sheets configuration
-const SPREADSHEET_ID = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
-const API_KEY = 'AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU';
+// Google Sheets configuration (from config.js)
+const SPREADSHEET_ID = config.SPREADSHEET_ID;
+const API_KEY = config.API_KEY;
 
 /**
  * Import CSV data vào Google Sheets
@@ -60,7 +61,7 @@ async function importCSVData() {
 
     console.log('\n🎉 Import hoàn tất!');
     console.log('\n📋 Kiểm tra kết quả tại:');
-    console.log('   https://docs.google.com/spreadsheets/d/1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko');
+    console.log(`   https://docs.google.com/spreadsheets/d/${config.SPREADSHEET_ID}`);
 
   } catch (error) {
     console.error('❌ Error during import:', error.message);

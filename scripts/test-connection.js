@@ -1,4 +1,5 @@
 const { google } = require('googleapis');
+const config = require('./config');
 
 /**
  * Script test connection với Google Sheets trước khi migrate
@@ -7,8 +8,8 @@ async function testConnection() {
   try {
     console.log('🔍 Đang kiểm tra kết nối với Google Sheets...\n');
     
-    const apiKey = 'AIzaSyDmkaE51CRnu4AJPo6uAc9Web19sZ-CeHU';
-    const spreadsheetId = '1tXLOOPHF-PzjxawZvoJjMn8UYG26abwU_EQvHIvOhko';
+    const apiKey = config.API_KEY;
+    const spreadsheetId = config.SPREADSHEET_ID;
     
     const sheets = google.sheets({ version: 'v4', auth: apiKey });
     
