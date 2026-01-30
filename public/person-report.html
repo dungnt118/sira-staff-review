@@ -80,6 +80,8 @@
     .view-icon { color: var(--accent); font-size: 18px; }
 
     .assignments-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .section-toggle { margin-left: auto; background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-weight: 700; }
+    .section-toggle:hover { border-color: rgba(255,255,255,0.2); }
     .assignment-item {
       background: var(--card-2);
       border: 1px solid var(--border);
@@ -176,7 +178,12 @@
 
     function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
 
-    function renderSummaryCard(title, avgScore, evalCount) {
+    function formatScore(num) {
+      if (num == null || isNaN(num)) return '-';
+      return Math.round(num * 100) / 100;
+    }
+
+    function renderSummaryCard(title, avgCriteriaScore, avgTotalScore, evalCount) {
       const card = document.createElement('div');
       card.className = 'card';
       const header = document.createElement('div');
@@ -186,13 +193,18 @@
 
       const metric1 = document.createElement('div');
       metric1.className = 'metric';
-      metric1.innerHTML = `<div class="label">Điểm trung bình</div><div class="value">${Math.round(avgScore * 10) / 10}</div>`;
+      metric1.innerHTML = `<div class="label">Điểm TB tiêu chí</div><div class="value">${formatScore(avgCriteriaScore)}</div>`;
       card.appendChild(metric1);
 
       const metric2 = document.createElement('div');
       metric2.className = 'metric';
-      metric2.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${evalCount}</div>`;
+      metric2.innerHTML = `<div class="label">Điểm TB (tổng)</div><div class="value">${formatScore(avgTotalScore)}</div>`;
       card.appendChild(metric2);
+
+      const metric3 = document.createElement('div');
+      metric3.className = 'metric';
+      metric3.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${evalCount}</div>`;
+      card.appendChild(metric3);
 
       return card;
     }
@@ -204,6 +216,11 @@
       header.className = 'section-title';
       const typeLabel = targetType === 'EMPLOYEE' ? 'Nhân viên' : 'Lãnh đạo';
       header.innerHTML = `👥 Người đánh giá (${typeLabel})`;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'section-toggle';
+      toggleBtn.type = 'button';
+      toggleBtn.textContent = 'Mở';
+      header.appendChild(toggleBtn);
       card.appendChild(header);
 
       if (!reviewers || reviewers.length === 0) {
@@ -215,7 +232,7 @@
       }
 
       const list = document.createElement('div');
-      list.className = 'reviewer-list';
+      list.className = 'reviewer-list hidden';
 
       reviewers.forEach(reviewer => {
         const item = document.createElement('div');
@@ -236,6 +253,17 @@
       });
 
       card.appendChild(list);
+
+      toggleBtn.onclick = () => {
+        const isHidden = list.classList.contains('hidden');
+        if (isHidden) {
+          list.classList.remove('hidden');
+          toggleBtn.textContent = 'Thu gọn';
+        } else {
+          list.classList.add('hidden');
+          toggleBtn.textContent = 'Mở';
+        }
+      };
       return card;
     }
 
@@ -252,6 +280,11 @@
       const statsText = total > 0 ? ` (${completed}/${total})` : '';
       
       header.innerHTML = `🧾 Nhiệm vụ (${typeLabel})${statsText}`;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'section-toggle';
+      toggleBtn.type = 'button';
+      toggleBtn.textContent = 'Mở';
+      header.appendChild(toggleBtn);
       card.appendChild(header);
 
       if (!assignments || assignments.length === 0) {
@@ -263,7 +296,7 @@
       }
 
       const list = document.createElement('div');
-      list.className = 'assignments-list';
+      list.className = 'assignments-list hidden';
 
       assignments.forEach(item => {
         const row = document.createElement('div');
@@ -298,6 +331,17 @@
       });
 
       card.appendChild(list);
+
+      toggleBtn.onclick = () => {
+        const isHidden = list.classList.contains('hidden');
+        if (isHidden) {
+          list.classList.remove('hidden');
+          toggleBtn.textContent = 'Thu gọn';
+        } else {
+          list.classList.add('hidden');
+          toggleBtn.textContent = 'Mở';
+        }
+      };
       return card;
     }
 
@@ -442,7 +486,8 @@
           const empTarget = targets.EMPLOYEE;
           reports.appendChild(renderSummaryCard(
             '👤 Báo cáo Nhân viên',
-            empTarget.averageScore || 0,
+            empTarget.avgCriteriaScore || 0,
+            empTarget.avgTotalScore || empTarget.averageScore || 0,
             empTarget.evaluationCount || 0
           ));
           reports.appendChild(renderReviewersList(empTarget.reviewers, 'EMPLOYEE', revieweeEmail));
@@ -454,7 +499,8 @@
           const mgTarget = targets.MANAGER;
           reports.appendChild(renderSummaryCard(
             '👔 Báo cáo Lãnh đạo',
-            mgTarget.averageScore || 0,
+            mgTarget.avgCriteriaScore || 0,
+            mgTarget.avgTotalScore || mgTarget.averageScore || 0,
             mgTarget.evaluationCount || 0
           ));
           reports.appendChild(renderReviewersList(mgTarget.reviewers, 'MANAGER', revieweeEmail));

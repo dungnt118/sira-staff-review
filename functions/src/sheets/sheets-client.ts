@@ -1299,6 +1299,8 @@ export class SheetsClient {
       evalIds: Set<string>;
       criteria: Map<string, { total: number; count: number; name: string; category?: string; level?: number }>;
       reviewers: Map<string, { email: string; name: string; evalId: string }>;
+      criteriaScoreSum: number;
+      criteriaCount: number;
     }> = {};
 
     for (let i = 1; i < eVals.length; i++) {
@@ -1314,10 +1316,12 @@ export class SheetsClient {
       if (!criteriaId || isNaN(scoreVal)) continue;
 
       if (!perTarget[target]) {
-        perTarget[target] = { totalScore: 0, evalIds: new Set<string>(), criteria: new Map(), reviewers: new Map() };
+        perTarget[target] = { totalScore: 0, evalIds: new Set<string>(), criteria: new Map(), reviewers: new Map(), criteriaScoreSum: 0, criteriaCount: 0 };
       }
       const bucket = perTarget[target];
       bucket.totalScore += scoreVal;
+      bucket.criteriaScoreSum += scoreVal;
+      bucket.criteriaCount += 1;
       if (evalId) bucket.evalIds.add(evalId);
 
       // Track reviewers for this target_type
@@ -1388,11 +1392,15 @@ export class SheetsClient {
       // Sort criteria without category
       withoutCategory.sort((a, b) => b.average - a.average || a.criteria_name.localeCompare(b.criteria_name));
 
+      const avgTotalScore = data.evalIds.size > 0 ? data.totalScore / data.evalIds.size : 0;
+      const avgCriteriaScore = data.criteriaCount > 0 ? data.criteriaScoreSum / data.criteriaCount : 0;
       targets[target] = {
         target_type: target,
         totalScore: data.totalScore,
         evaluationCount: data.evalIds.size,
         averageScore: data.evalIds.size > 0 ? Math.round((data.totalScore / data.evalIds.size) * 10) / 10 : 0,
+        avgTotalScore: avgTotalScore,
+        avgCriteriaScore: avgCriteriaScore,
         categories: categories,
         criteria: withoutCategory,
         reviewers: Array.from(data.reviewers.values()).sort((a, b) => a.name.localeCompare(b.name))
