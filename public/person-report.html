@@ -245,7 +245,13 @@
       const header = document.createElement('div');
       header.className = 'section-title';
       const typeLabel = targetType === 'EMPLOYEE' ? 'Nhân viên' : 'Lãnh đạo';
-      header.innerHTML = `🧾 Nhiệm vụ (${typeLabel})`;
+      
+      // Tính số nhiệm vụ hoàn thành
+      const completed = (assignments || []).filter(a => (a.status || '').toUpperCase() === 'COMPLETED').length;
+      const total = (assignments || []).length;
+      const statsText = total > 0 ? ` (${completed}/${total})` : '';
+      
+      header.innerHTML = `🧾 Nhiệm vụ (${typeLabel})${statsText}`;
       card.appendChild(header);
 
       if (!assignments || assignments.length === 0) {

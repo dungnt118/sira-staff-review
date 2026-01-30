@@ -290,21 +290,25 @@
 
     <section class="grid grid-2" style="margin-top:16px;">
       <div class="card">
-        <div class="section-title">⚠️ Nhân viên chưa đánh giá</div>
+        <div class="section-title">⚠️ Tình trạng đánh giá chi tiết</div>
         <div class="muted" id="pendingReviewersEmpty" style="display:none;">Tất cả đã hoàn thành.</div>
         <div class="list" id="pendingReviewers"></div>
       </div>
       <div class="card">
-        <div class="section-title">📝 Chưa được đánh giá</div>
-        <div class="muted" id="notEvalEmpty" style="display:none;">Không có ai chưa được đánh giá.</div>
-        <div class="list" id="notEvaluated"></div>
+        <div class="section-title">� Tình trạng nhân viên</div>
+        
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px; color:var(--muted); margin-bottom:8px; font-weight:700;">📝 Chưa được đánh giá</div>
+          <div class="muted" id="notEvalEmpty" style="display:none;">Không có ai chưa được đánh giá.</div>
+          <div class="list" id="notEvaluated"></div>
+        </div>
+        
+        <div style="border-top:1px solid var(--border); padding-top:16px;">
+          <div style="font-size:13px; color:var(--muted); margin-bottom:8px; font-weight:700;">✅ Đã được đánh giá</div>
+          <div class="muted" id="evaluatedEmpty" style="display:none;">Chưa có đánh giá nào.</div>
+          <div class="list" id="evaluated"></div>
+        </div>
       </div>
-    </section>
-
-    <section class="card" style="margin-top:16px;">
-      <div class="section-title">✅ Đã được đánh giá</div>
-      <div class="muted" id="evaluatedEmpty" style="display:none;">Chưa có đánh giá nào.</div>
-      <div class="list" id="evaluated"></div>
     </section>
 
     <section id="loading" class="card" style="margin-top:16px; text-align:center;">
@@ -444,9 +448,47 @@
         renderTop('topEmployeesTable', 'topEmpEmpty', resp.data.topEmployees || []);
         renderTop('topManagersTable', 'topMgrEmpty', resp.data.topManagers || []);
 
-        renderList('pendingReviewers', 'pendingReviewersEmpty', resp.data.notEvaluatedReviewers || [], (item) => {
-          const badge = chip(`${item.pendingAssignments} pending`, item.pendingAssignments > 3 ? 'danger' : 'info');
-          return buildListItem(item.name || item.email, item.email, badge);
+        renderList('pendingReviewers', 'pendingReviewersEmpty', resp.data.pendingReviewers || [], (item) => {
+          const left = document.createElement('div');
+          left.style.display = 'flex';
+          left.style.flexDirection = 'column';
+          left.style.gap = '8px';
+          
+          const nameEl = document.createElement('div');
+          nameEl.innerHTML = `<div class="name">${item.name || item.email}</div><div class="meta">${item.email}</div>`;
+          left.appendChild(nameEl);
+          
+          // Badges container
+          const badgesEl = document.createElement('div');
+          badgesEl.style.display = 'flex';
+          badgesEl.style.gap = '8px';
+          badgesEl.style.flexWrap = 'wrap';
+          badgesEl.style.marginTop = '6px';
+          
+          // Badge 1: Employee assignments
+          if (item.totalEmployeeAssignments > 0) {
+            const badge1 = document.createElement('span');
+            badge1.className = 'chip info';
+            badge1.textContent = `👤 Đánh giá nhân viên: ${item.completedEmployeeAssignments}/${item.totalEmployeeAssignments}`;
+            badgesEl.appendChild(badge1);
+          }
+          
+          // Badge 2: Manager assignments
+          if (item.totalManagerAssignments > 0) {
+            const badge2 = document.createElement('span');
+            badge2.className = 'chip info';
+            badge2.textContent = `👔 Đánh giá lãnh đạo: ${item.completedManagerAssignments}/${item.totalManagerAssignments}`;
+            badgesEl.appendChild(badge2);
+          }
+          
+          left.appendChild(badgesEl);
+          
+          const el = document.createElement('div');
+          el.className = 'list-item';
+          el.appendChild(left);
+          el.style.cursor = 'pointer';
+          el.onclick = () => window.location.href = `person-report.html?reviewee_email=${encodeURIComponent(item.email)}`;
+          return el;
         });
 
         renderList('notEvaluated', 'notEvalEmpty', resp.data.notEvaluatedReviewees || [], (item) => {

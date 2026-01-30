@@ -758,11 +758,11 @@ export class SheetsClient {
       for (let i = 1; i < values.length; i++) {
         const rowReviewer = (values[i][idx.reviewerEmail] || '').trim().toLowerCase();
         const rowReviewee = (values[i][idx.revieweeEmail] || '').trim().toLowerCase();
-        const rowTarget = (values[i][idx.targetType] || '').trim();
+        const rowTarget = (values[i][idx.targetType] || '').trim().toUpperCase();
 
         if (rowReviewer === reviewerEmail.trim().toLowerCase() &&
             rowReviewee === revieweeEmail.trim().toLowerCase() &&
-            rowTarget === targetType) {
+            rowTarget === targetType.trim().toUpperCase()) {
           // Convert column index to letter
           const colLetter = String.fromCharCode(65 + idx.status);
           console.log('updateAssignmentStatus: Updating row', i + 1, 'column', colLetter, 'to', status);
@@ -964,7 +964,13 @@ export class SheetsClient {
 
     const totalAssignments = Math.max(assignValues.length - 1, 0);
     let completedAssignments = 0;
-    const pendingByReviewer = new Map<string, number>();
+    
+    // Track assignments by reviewer with breakdown by target_type
+    const pendingByReviewer = new Map<string, {
+      employeeAssignments: { completed: number; total: number };
+      managerAssignments: { completed: number; total: number };
+    }>();
+    
     const revieweesFromAssignments = new Set<string>();
 
     if (assignValues.length > 1 && assignIdx.reviewerEmail >= 0 && assignIdx.revieweeEmail >= 0 && assignIdx.status >= 0) {
@@ -972,7 +978,7 @@ export class SheetsClient {
         const row = assignValues[i];
         const reviewer = (row[assignIdx.reviewerEmail] || '').trim();
         const reviewee = (row[assignIdx.revieweeEmail] || '').trim();
-        const targetType = (row[assignIdx.targetType] || '').trim();
+        const targetType = (row[assignIdx.targetType] || '').trim().toUpperCase();
         const status = (row[assignIdx.status] || '').trim().toUpperCase();
         if (reviewee) revieweesFromAssignments.add(reviewee.toLowerCase());
         if (reviewer && reviewee && targetType) {
@@ -981,10 +987,40 @@ export class SheetsClient {
 
         if (status === 'COMPLETED') {
           completedAssignments += 1;
-        } else {
+        } else if (reviewer) {
           // pending assignment của reviewer
-          if (reviewer) {
-            pendingByReviewer.set(reviewer.toLowerCase(), (pendingByReviewer.get(reviewer.toLowerCase()) || 0) + 1);
+          const reviewerLower = reviewer.toLowerCase();
+          if (!pendingByReviewer.has(reviewerLower)) {
+            pendingByReviewer.set(reviewerLower, {
+              employeeAssignments: { completed: 0, total: 0 },
+              managerAssignments: { completed: 0, total: 0 },
+            });
+          }
+        }
+      }
+      
+      // Second pass: count all assignments (both pending and completed) by type
+      for (let i = 1; i < assignValues.length; i++) {
+        const row = assignValues[i];
+        const reviewer = (row[assignIdx.reviewerEmail] || '').trim();
+        const targetType = (row[assignIdx.targetType] || '').trim().toUpperCase();
+        const status = (row[assignIdx.status] || '').trim().toUpperCase();
+        
+        if (!reviewer) continue;
+        
+        const reviewerLower = reviewer.toLowerCase();
+        const record = pendingByReviewer.get(reviewerLower);
+        if (!record) continue;
+        
+        if (targetType === 'EMPLOYEE') {
+          record.employeeAssignments.total += 1;
+          if (status === 'COMPLETED') {
+            record.employeeAssignments.completed += 1;
+          }
+        } else if (targetType === 'MANAGER') {
+          record.managerAssignments.total += 1;
+          if (status === 'COMPLETED') {
+            record.managerAssignments.completed += 1;
           }
         }
       }
@@ -1058,16 +1094,24 @@ export class SheetsClient {
     const topEmployees = toDisplay(topEmployeesRaw, 5);
     const topManagers = toDisplay(topManagersRaw, 3);
 
-    const notEvaluatedReviewers = Array.from(pendingByReviewer.entries())
-      .map(([email, pending]) => {
+    const pendingReviewers = Array.from(pendingByReviewer.entries())
+      .map(([email, stats]) => {
         const emp = employeeMap.get(email);
         return {
           email,
           name: emp?.name || email,
-          pendingAssignments: pending,
+          completedEmployeeAssignments: stats.employeeAssignments.completed,
+          totalEmployeeAssignments: stats.employeeAssignments.total,
+          completedManagerAssignments: stats.managerAssignments.completed,
+          totalManagerAssignments: stats.managerAssignments.total,
         };
       })
-      .sort((a, b) => b.pendingAssignments - a.pendingAssignments || a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        // Sort by total pending (employee + manager)
+        const aPending = (a.totalEmployeeAssignments - a.completedEmployeeAssignments) + (a.totalManagerAssignments - a.completedManagerAssignments);
+        const bPending = (b.totalEmployeeAssignments - b.completedEmployeeAssignments) + (b.totalManagerAssignments - b.completedManagerAssignments);
+        return bPending - aPending || a.name.localeCompare(b.name);
+      });
 
     // ----- Reviewees evaluated / not evaluated -----
     const evaluatedRevieweesSet = new Set<string>();
@@ -1101,7 +1145,7 @@ export class SheetsClient {
     return {
       topEmployees,
       topManagers,
-      notEvaluatedReviewers,
+      pendingReviewers,
       notEvaluatedReviewees,
       evaluatedReviewees,
       summary: {
