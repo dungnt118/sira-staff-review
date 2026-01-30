@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📊 Kết quả đánh giá của tôi - SIRA</title>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #1d1e26 0%, #0f172a 100%);
+      --card: #0f1724;
+      --card-2: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #f59e0b;
+      --border: rgba(255,255,255,0.08);
+      --good: #22c55e;
+      --mid: #3b82f6;
+      --purple: #a855f7;
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .shell { max-width: 1180px; margin: 0 auto; }
+    .header {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 16px 18px; border-radius: 14px; background: rgba(17,24,39,0.75);
+      border: 1px solid var(--border); backdrop-filter: blur(8px);
+      margin-bottom: 20px;
+    }
+    .title { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 800; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .actions { display: flex; gap: 10px; }
+    .btn { border: none; border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 700; transition: all .2s; }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.2); }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 16px; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; font-size: 15px; margin: 0 0 14px; color: #e0f2fe; }
+    .section-toggle { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+    .section-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .summary-card {
+      padding: 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      opacity: 0.1;
+      z-index: 0;
+    }
+    .summary-card.employee::before { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .summary-card.manager::before { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .summary-card.overall::before { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .summary-card-content { position: relative; z-index: 1; }
+    .summary-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .summary-score { font-size: 32px; font-weight: 800; color: var(--good); margin-bottom: 4px; }
+    .summary-meta { font-size: 12px; color: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; font-size: 14px; }
+    th { color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 700; }
+    tbody tr + tr td { border-top: 1px solid var(--border); }
+    .num { text-align: right; font-family: monospace; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge-employee { background: rgba(102, 126, 234, 0.2); color: #a5b4fc; }
+    .badge-manager { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; }
+
+    .comment-item {
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .comment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .comment-text {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .comment-scores {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .score-tag {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+    }
+
+    .hidden { display: none !important; }
+    .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div>
+        <div class="title">📊 Kết quả đánh giá của tôi</div>
+        <div class="subtitle" id="employeeInfo"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="window.location.href='welcome.html'">← Quay lại</button>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="card">
+      <div class="section-title">
+        <span>📈 Tổng quan điểm số</span>
+      </div>
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <!-- Criteria Breakdown -->
+    <div class="card">
+      <div class="section-title">
+        <span>📊 Điểm từng tiêu chí</span>
+      </div>
+      <div id="criteriaBreakdown"></div>
+    </div>
+
+    <!-- Comments from Employees -->
+    <div class="card">
+      <div class="section-title">
+        <span>💬 Bình luận từ đồng nghiệp</span>
+        <button class="section-toggle" id="toggleEmployeeComments">Mở</button>
+      </div>
+      <div id="employeeComments" class="hidden"></div>
+    </div>
+
+    <!-- Comments from Managers -->
+    <div class="card">
+      <div class="section-title">
+        <span>💬 Bình luận từ lãnh đạo</span>
+        <button class="section-toggle" id="toggleManagerComments">Mở</button>
+      </div>
+      <div id="managerComments" class="hidden"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    // Check login - use same key as dashboard.html
+    const savedUser = localStorage.getItem('currentUser');
+    if (!savedUser) {
+      alert('Bạn chưa đăng nhập. Đang chuyển hướng...');
+      window.location.href = 'index.html';
+      throw new Error('Not logged in'); // Stop execution
+    }
+    const user = JSON.parse(savedUser);
+    
+    // Use email as employee identifier (backend indexes by email)
+    const employeeEmail = user?.auth?.email || user?.employee?.email;
+    if (!employeeEmail) {
+      alert('Không tìm thấy thông tin email. Vui lòng đăng nhập lại.');
+      window.location.href = 'index.html';
+      throw new Error('No email found'); // Stop execution
+    }
+
+    const SIRA_API = {
+      async getMyResults(employeeEmail) {
+        const resp = await fetch(`${window.SIRA_CONFIG.API_BASE_URL}/getMyResults?employee_id=${encodeURIComponent(employeeEmail)}`);
+        const json = await resp.json();
+        if (!json.success) throw new Error(json.error);
+        return json.data;
+      }
+    };
+
+    function formatScore(num) {
+      return Math.round(num * 100) / 100;
+    }
+
+    function renderSummaryCards(summary) {
+      const grid = document.getElementById('summaryGrid');
+      
+      const cards = [
+        {
+          type: 'employee',
+          label: 'Từ đồng nghiệp',
+          score: summary.byEmployees.avgScore,
+          count: summary.byEmployees.count
+        },
+        {
+          type: 'manager',
+          label: 'Từ lãnh đạo',
+          score: summary.byManagers.avgScore,
+          count: summary.byManagers.count
+        },
+        {
+          type: 'overall',
+          label: 'Tổng hợp',
+          score: summary.overall.avgScore,
+          count: summary.overall.count
+        }
+      ];
+
+      grid.innerHTML = cards.map(c => `
+        <div class="summary-card ${c.type}">
+          <div class="summary-card-content">
+            <div class="summary-label">${c.label}</div>
+            <div class="summary-score">${formatScore(c.score)}</div>
+            <div class="summary-meta">${c.count} đánh giá</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderCriteriaBreakdown(breakdown) {
+      const container = document.getElementById('criteriaBreakdown');
+      
+      if (!breakdown || breakdown.length === 0) {
+        container.innerHTML = '<div class="empty-state">Chưa có dữ liệu tiêu chí</div>';
+        return;
+      }
+
+      // Group by target_type
+      const byEmployee = breakdown.filter(c => c.target_type === 'employee');
+      const byManager = breakdown.filter(c => c.target_type === 'manager');
+
+      let html = '';
+
+      if (byEmployee.length > 0) {
+        html += `
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <span class="badge badge-employee">Bộ tiêu chí: Nhân viên</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tiêu chí</th>
+                  <th class="num">Điểm TB</th>
+                  <th class="num">Số lượng</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${byEmployee.map(c => `
+                  <tr>
+                    <td>${c.criteria_name}</td>
+                    <td class="num">${formatScore(c.avg_score)}</td>
+                    <td class="num">${c.count}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      if (byManager.length > 0) {
+        html += `
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <span class="badge badge-manager">Bộ tiêu chí: Lãnh đạo</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tiêu chí</th>
+                  <th class="num">Điểm TB</th>
+                  <th class="num">Số lượng</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${byManager.map(c => `
+                  <tr>
+                    <td>${c.criteria_name}</td>
+                    <td class="num">${formatScore(c.avg_score)}</td>
+                    <td class="num">${c.count}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderComments(comments, targetType, containerId) {
+      const container = document.getElementById(containerId);
+      const filtered = comments.filter(c => c.target_type === targetType);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">Chưa có bình luận</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(c => `
+        <div class="comment-item">
+          <div class="comment-header">
+            <span>${new Date(c.date).toLocaleDateString('vi-VN')}</span>
+            <span>Tổng điểm: <strong>${formatScore(c.total_score)}</strong></span>
+          </div>
+          <div class="comment-text">${c.comment}</div>
+          ${c.criteria_scores.length > 0 ? `
+            <div class="comment-scores">
+              ${c.criteria_scores.map(cs => `
+                <span class="score-tag">${cs.name}: ${cs.score}</span>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    // Toggle handlers
+    document.getElementById('toggleEmployeeComments').addEventListener('click', (e) => {
+      const container = document.getElementById('employeeComments');
+      const btn = e.target;
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        btn.textContent = 'Thu gọn';
+      } else {
+        container.classList.add('hidden');
+        btn.textContent = 'Mở';
+      }
+    });
+
+    document.getElementById('toggleManagerComments').addEventListener('click', (e) => {
+      const container = document.getElementById('managerComments');
+      const btn = e.target;
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        btn.textContent = 'Thu gọn';
+      } else {
+        container.classList.add('hidden');
+        btn.textContent = 'Mở';
+      }
+    });
+
+    // Load data
+    async function loadData() {
+      try {
+        const data = await SIRA_API.getMyResults(employeeEmail);
+        
+        // Employee info
+        document.getElementById('employeeInfo').textContent = 
+          `${data.employee.name} - ${data.employee.department} - ${data.employee.position}`;
+
+        // Render sections
+        renderSummaryCards(data.summary);
+        renderCriteriaBreakdown(data.criteriaBreakdown);
+        renderComments(data.comments, 'employee', 'employeeComments');
+        renderComments(data.comments, 'manager', 'managerComments');
+
+      } catch (error) {
+        console.error('Error loading results:', error);
+        alert('Lỗi khi tải dữ liệu: ' + error.message);
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

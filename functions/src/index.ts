@@ -490,7 +490,42 @@ export const getAllAssignments = onRequest(async (req, res) => {
     });
   }
 });
+/**
+ * API lấy kết quả đánh giá của người dùng hiện tại
+ * GET /my-results?employee_id=xxx
+ */
+export const getMyResults = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
 
+  if (req.method === "OPTIONS") {
+    res.status(200).send();
+    return;
+  }
+
+  try {
+    const employeeId = req.query.employee_id as string;
+    if (!employeeId) {
+      res.status(400).json({ success: false, error: "employee_id is required" });
+      return;
+    }
+
+    const sheetsClient = new SheetsClient();
+    const results = await sheetsClient.getMyEvaluationResults(employeeId);
+
+    res.json({
+      success: true,
+      data: results
+    });
+    
+  } catch (error: any) {
+    console.error('getMyResults: Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
 /**
  * API cập nhật toàn bộ assignments (ADMIN only)
  * POST /updateAllAssignments

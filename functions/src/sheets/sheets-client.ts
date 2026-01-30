@@ -1564,4 +1564,251 @@ export class SheetsClient {
       throw error;
     }
   }
+
+  /**
+   * Lấy kết quả đánh giá của một nhân viên cụ thể
+   * - Tổng quan điểm số (theo bộ nhân viên, lãnh đạo, tổng hợp)
+   * - Điểm từng tiêu chí (group by target_type)
+   * - Bình luận (anonymous)
+   */
+  async getMyEvaluationResults(employeeId: string) {
+    const employeeMap = await this.getAllEmployeesAsMap();
+    const employee = employeeMap.get(employeeId.toLowerCase());
+    if (!employee) {
+      throw new Error(`Employee not found: ${employeeId}`);
+    }
+
+    // Fetch EVALUATIONS sheet (parallel with CRITERIA)
+    const [evaluationsResponse, criteriaResponse] = await Promise.all([
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'EVALUATIONS!A:H',
+      }),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'CRITERIA!A:I',
+      })
+    ]);
+
+    const evalValues = evaluationsResponse.data.values;
+    if (!evalValues || evalValues.length < 2) {
+      // No evaluations yet
+      return {
+        employee: {
+          employee_id: employee.employee_id,
+          name: employee.name,
+          email: employee.email,
+          department: employee.department,
+          position: employee.position
+        },
+        summary: {
+          byEmployees: { avgScore: 0, avgTotalScore: 0, count: 0 },
+          byManagers: { avgScore: 0, avgTotalScore: 0, count: 0 },
+          overall: { avgScore: 0, avgTotalScore: 0, count: 0 }
+        },
+        criteriaBreakdown: [],
+        comments: []
+      };
+    }
+
+    // Parse CRITERIA
+    const criteriaValues = criteriaResponse.data.values || [];
+    const criteriaMap = new Map<string, any>();
+    if (criteriaValues.length > 1) {
+      const header = criteriaValues[0].map((h: string) => (h || '').trim().toLowerCase());
+      const col = (...names: string[]) => {
+        for (const n of names) {
+          const idx = header.indexOf(n.toLowerCase());
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const idx = {
+        id: col('criteria_id', 'id'),
+        name: col('criteria_name', 'name')
+      };
+
+      for (let i = 1; i < criteriaValues.length; i++) {
+        const row = criteriaValues[i];
+        const criteriaId = idx.id >= 0 ? row[idx.id]?.toString() : row[0]?.toString();
+        const criteriaName = idx.name >= 0 ? row[idx.name] : row[1];
+        if (criteriaId) {
+          criteriaMap.set(criteriaId, { criteria_id: criteriaId, criteria_name: criteriaName });
+        }
+      }
+    }
+
+    // Parse EVALUATIONS
+    const evalHeader = evalValues[0].map((h: string) => (h || '').trim().toLowerCase());
+    const col = (...names: string[]) => {
+      for (const n of names) {
+        const idx = evalHeader.indexOf(n.toLowerCase());
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+    const idx = {
+      evalId: col('evaluation_id'),
+      revieweeEmail: col('reviewee_email'),
+      targetType: col('target_type'),
+      criteriaId: col('criteria_id'),
+      score: col('score'),
+      totalScore: col('total_score'),
+      comments: col('comments'),
+      evaluationDate: col('evaluation_date')
+    };
+
+    // Find evaluations for this employee (by email or employee_id)
+    const targetEmailLower = employee.email.toLowerCase();
+    const myEvaluations: any[] = [];
+
+    for (let i = 1; i < evalValues.length; i++) {
+      const row = evalValues[i];
+      const revieweeEmail = idx.revieweeEmail >= 0 ? (row[idx.revieweeEmail] || '').trim().toLowerCase() : '';
+      
+      if (revieweeEmail === targetEmailLower || revieweeEmail === employeeId.toLowerCase()) {
+        myEvaluations.push({
+          evaluation_id: idx.evalId >= 0 ? row[idx.evalId] : '',
+          target_type: idx.targetType >= 0 ? (row[idx.targetType] || '').trim().toLowerCase() : 'employee',
+          criteria_id: idx.criteriaId >= 0 ? row[idx.criteriaId]?.toString() : '',
+          score: idx.score >= 0 ? parseFloat(row[idx.score]) || 0 : 0,
+          total_score: idx.totalScore >= 0 ? parseFloat(row[idx.totalScore]) || 0 : 0,
+          comment: idx.comments >= 0 ? row[idx.comments] : '',
+          created_at: idx.evaluationDate >= 0 ? row[idx.evaluationDate] : ''
+        });
+      }
+    }
+
+    // Group by evaluation_id to aggregate
+    const evaluationGroups = new Map<string, any[]>();
+    for (const ev of myEvaluations) {
+      if (!evaluationGroups.has(ev.evaluation_id)) {
+        evaluationGroups.set(ev.evaluation_id, []);
+      }
+      evaluationGroups.get(ev.evaluation_id)!.push(ev);
+    }
+
+    // Initialize aggregators
+    const summaryByType = {
+      employee: { totalScore: 0, criteriaSum: 0, criteriaCount: 0, count: 0 },
+      manager: { totalScore: 0, criteriaSum: 0, criteriaCount: 0, count: 0 }
+    };
+
+    const criteriaScores = new Map<string, { target_type: string, criteria_name: string, scoreSum: number, count: number }>();
+    const comments: Array<{ target_type: string, date: string, total_score: number, comment: string, criteria_scores: Array<{ name: string, score: number }> }> = [];
+
+    // Process each evaluation group
+    for (const [, rows] of evaluationGroups.entries()) {
+      if (rows.length === 0) continue;
+
+      const firstRow = rows[0];
+      const targetType = firstRow.target_type === 'manager' ? 'manager' : 'employee';
+      const agg = summaryByType[targetType];
+      
+      // Use total_score from first row (they should all be same within one evaluation)
+      agg.totalScore += firstRow.total_score;
+      agg.count++;
+
+      const criteriaScoresArray: Array<{ name: string, score: number }> = [];
+
+      // Aggregate criteria scores
+      for (const row of rows) {
+        if (row.criteria_id && row.score > 0) {
+          const criteriaInfo = criteriaMap.get(row.criteria_id);
+          if (criteriaInfo) {
+            const key = `${targetType}:${criteriaInfo.criteria_name}`;
+            if (!criteriaScores.has(key)) {
+              criteriaScores.set(key, {
+                target_type: targetType,
+                criteria_name: criteriaInfo.criteria_name,
+                scoreSum: 0,
+                count: 0
+              });
+            }
+            const crit = criteriaScores.get(key)!;
+            crit.scoreSum += row.score;
+            crit.count++;
+            
+            agg.criteriaSum += row.score;
+            agg.criteriaCount++;
+
+            criteriaScoresArray.push({ name: criteriaInfo.criteria_name, score: row.score });
+          }
+        }
+      }
+
+      // Collect comments (if exists)
+      if (firstRow.comment && firstRow.comment.trim()) {
+        comments.push({
+          target_type: targetType,
+          date: firstRow.created_at,
+          total_score: firstRow.total_score,
+          comment: firstRow.comment,
+          criteria_scores: criteriaScoresArray
+        });
+      }
+    }
+
+    // Calculate averages
+    const summary = {
+      byEmployees: {
+        avgScore: summaryByType.employee.criteriaCount > 0 
+          ? Math.round((summaryByType.employee.criteriaSum / summaryByType.employee.criteriaCount) * 100) / 100 
+          : 0,
+        avgTotalScore: summaryByType.employee.count > 0
+          ? Math.round((summaryByType.employee.totalScore / summaryByType.employee.count) * 100) / 100
+          : 0,
+        count: summaryByType.employee.count
+      },
+      byManagers: {
+        avgScore: summaryByType.manager.criteriaCount > 0 
+          ? Math.round((summaryByType.manager.criteriaSum / summaryByType.manager.criteriaCount) * 100) / 100 
+          : 0,
+        avgTotalScore: summaryByType.manager.count > 0
+          ? Math.round((summaryByType.manager.totalScore / summaryByType.manager.count) * 100) / 100
+          : 0,
+        count: summaryByType.manager.count
+      },
+      overall: {
+        avgScore: (summaryByType.employee.criteriaCount + summaryByType.manager.criteriaCount) > 0
+          ? Math.round(((summaryByType.employee.criteriaSum + summaryByType.manager.criteriaSum) / (summaryByType.employee.criteriaCount + summaryByType.manager.criteriaCount)) * 100) / 100
+          : 0,
+        avgTotalScore: (summaryByType.employee.count + summaryByType.manager.count) > 0
+          ? Math.round(((summaryByType.employee.totalScore + summaryByType.manager.totalScore) / (summaryByType.employee.count + summaryByType.manager.count)) * 100) / 100
+          : 0,
+        count: summaryByType.employee.count + summaryByType.manager.count
+      }
+    };
+
+    // Format criteria breakdown
+    const criteriaBreakdown = Array.from(criteriaScores.values())
+      .map(c => ({
+        target_type: c.target_type,
+        criteria_name: c.criteria_name,
+        avg_score: Math.round((c.scoreSum / c.count) * 100) / 100,
+        count: c.count
+      }))
+      .sort((a, b) => {
+        if (a.target_type !== b.target_type) {
+          return a.target_type === 'employee' ? -1 : 1;
+        }
+        return a.criteria_name.localeCompare(b.criteria_name);
+      });
+
+    // Sort comments by date (newest first)
+    comments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return {
+      employee: {
+        employee_id: employee.employee_id,
+        name: employee.name,
+        email: employee.email,
+        department: employee.department,
+        position: employee.position
+      },
+      summary,
+      criteriaBreakdown,
+      comments
+    };
+  }
 }
