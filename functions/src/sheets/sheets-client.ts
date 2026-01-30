@@ -75,6 +75,7 @@ export class SheetsClient {
   async getEmployeeByEmail(email: string): Promise<Employee | null> {
     try {
       console.log('SheetsClient: Attempting to get employee by email:', email);
+      const emailLower = email.trim().toLowerCase();
       console.log('SheetsClient: Using spreadsheetId:', this.spreadsheetId);
       
       // Test authentication first
@@ -120,8 +121,8 @@ export class SheetsClient {
       // Bỏ qua header row (index 0) và tìm kiếm employee
       for (let i = 1; i < values.length; i++) {
         const row = values[i];
-        // Sử dụng emailIndex dynamic thay vì hard-coded index
-        if (row[emailIndex] === email) {
+        // So sánh case-insensitive (lowercase both sides)
+        if ((row[emailIndex] || '').trim().toLowerCase() === emailLower) {
           console.log('SheetsClient: Found employee:', { 
             employee_id: row[idIndex], 
             name: row[nameIndex], 
