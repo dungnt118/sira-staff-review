@@ -1040,6 +1040,8 @@ export class SheetsClient {
 
     // Tính tổng điểm theo evaluation_id trước (mỗi evaluation có nhiều dòng criteria)
     const evaluationTotals = new Map<string, { revieweeEmail: string; targetType: string; totalScore: number }>();
+    // Tính tổng điểm và số criteria theo reviewee + target_type (avgCriteriaScore)
+    const criteriaTotals = new Map<string, { revieweeEmail: string; targetType: string; scoreSum: number; criteriaCount: number }>();
     if (evalValues.length > 1 && evalIdx.evaluationId >= 0 && evalIdx.revieweeEmail >= 0 && evalIdx.targetType >= 0 && evalIdx.reviewerEmail >= 0) {
       for (let i = 1; i < evalValues.length; i++) {
         const row = evalValues[i];
@@ -1057,23 +1059,45 @@ export class SheetsClient {
         if (!existing.revieweeEmail) existing.revieweeEmail = revieweeEmail;
         if (!existing.targetType) existing.targetType = targetType;
         evaluationTotals.set(evalId, existing);
+
+        const criteriaKey = `${revieweeEmail.toLowerCase()}|${targetType}`;
+        const criteriaAgg = criteriaTotals.get(criteriaKey) || {
+          revieweeEmail,
+          targetType,
+          scoreSum: 0,
+          criteriaCount: 0,
+        };
+        criteriaAgg.scoreSum += scoreVal;
+        criteriaAgg.criteriaCount += 1;
+        criteriaTotals.set(criteriaKey, criteriaAgg);
       }
     }
 
     // Gom theo reviewee_email + target_type
-    const revieweeAggregates = new Map<string, { email: string; targetType: string; totalScore: number; evaluationCount: number }>();
+    const revieweeAggregates = new Map<string, { email: string; targetType: string; totalScore: number; evaluationCount: number; avgCriteriaScore: number }>();
     for (const [, entry] of evaluationTotals) {
       const key = `${entry.revieweeEmail.toLowerCase()}|${entry.targetType}`;
-      const agg = revieweeAggregates.get(key) || { email: entry.revieweeEmail, targetType: entry.targetType, totalScore: 0, evaluationCount: 0 };
+      const criteriaAgg = criteriaTotals.get(key);
+      const avgCriteriaScore = criteriaAgg && criteriaAgg.criteriaCount > 0
+        ? criteriaAgg.scoreSum / criteriaAgg.criteriaCount
+        : 0;
+      const agg = revieweeAggregates.get(key) || {
+        email: entry.revieweeEmail,
+        targetType: entry.targetType,
+        totalScore: 0,
+        evaluationCount: 0,
+        avgCriteriaScore,
+      };
       agg.totalScore += entry.totalScore;
       agg.evaluationCount += 1;
+      agg.avgCriteriaScore = avgCriteriaScore;
       revieweeAggregates.set(key, agg);
     }
 
     // Tách top theo target_type
     const toDisplay = (arr: any[], limit: number) =>
       arr
-        .sort((a, b) => b.totalScore - a.totalScore || a.name.localeCompare(b.name))
+        .sort((a, b) => (b.avgCriteriaScore - a.avgCriteriaScore) || (b.totalScore - a.totalScore) || a.name.localeCompare(b.name))
         .slice(0, limit);
 
     const topEmployeesRaw = [] as any[];
@@ -1085,14 +1109,15 @@ export class SheetsClient {
         name: emp?.name || agg.email,
         totalScore: agg.totalScore,
         evaluationCount: agg.evaluationCount,
-        avgScore: agg.evaluationCount > 0 ? agg.totalScore / agg.evaluationCount : 0,
+        avgTotalScore: agg.evaluationCount > 0 ? agg.totalScore / agg.evaluationCount : 0,
+        avgCriteriaScore: agg.avgCriteriaScore,
       };
       if (agg.targetType === 'EMPLOYEE') topEmployeesRaw.push(base);
       if (agg.targetType === 'MANAGER') topManagersRaw.push(base);
     }
 
-    const topEmployees = toDisplay(topEmployeesRaw, 5);
-    const topManagers = toDisplay(topManagersRaw, 3);
+    const topEmployees = toDisplay(topEmployeesRaw, 7);
+    const topManagers = toDisplay(topManagersRaw, 7);
 
     const pendingReviewers = Array.from(pendingByReviewer.entries())
       .map(([email, stats]) => {
