@@ -319,7 +319,7 @@
       const table = document.createElement('table');
       table.innerHTML = `
         <thead>
-          <tr><th>Tiêu chí / Nhóm</th><th>Điểm TB</th><th>Max</th></tr>
+          <tr><th>Tiêu chí / Nhóm</th><th>Điểm TB</th><th>Max</th><th>Người đánh giá</th></tr>
         </thead>
         <tbody></tbody>
       `;
@@ -334,6 +334,7 @@
           <td style="padding-left: 8px; color: #3b82f6;">${cat.category_name}</td>
           <td style="color: #3b82f6;">${cat.average}</td>
           <td style="color: #3b82f6;">-</td>
+          <td style="color: #3b82f6;">-</td>
         `;
         tbody.appendChild(catRow);
 
@@ -345,6 +346,7 @@
             <td style="padding-left: 20px;">${subC.criteria_name}</td>
             <td>${subC.average}</td>
             <td>5</td>
+            <td>${subC.count || 0}</td>
           `;
           tbody.appendChild(subRow);
         }
@@ -355,7 +357,7 @@
         // Divider hàng nếu có cả categories và other criteria
         if (categories.length > 0) {
           const dividerRow = document.createElement('tr');
-          dividerRow.innerHTML = '<td colspan="3" style="height: 1px; background: rgba(255,255,255,0.1); padding: 0;"></td>';
+          dividerRow.innerHTML = '<td colspan="4" style="height: 1px; background: rgba(255,255,255,0.1); padding: 0;"></td>';
           tbody.appendChild(dividerRow);
         }
 
@@ -365,6 +367,7 @@
           otherHeaderRow.style.cssText = 'background: rgba(156, 163, 175, 0.1); font-weight: 700;';
           otherHeaderRow.innerHTML = `
             <td style="padding-left: 8px; color: #9ca3af;">Tiêu chí khác</td>
+            <td style="color: #9ca3af;">-</td>
             <td style="color: #9ca3af;">-</td>
             <td style="color: #9ca3af;">-</td>
           `;
@@ -378,6 +381,7 @@
             <td style="padding-left: ${categories.length > 0 ? '20px' : '8px'}">${c.criteria_name}</td>
             <td>${c.average}</td>
             <td>5</td>
+            <td>${c.count || 0}</td>
           `;
           tbody.appendChild(row);
         }
