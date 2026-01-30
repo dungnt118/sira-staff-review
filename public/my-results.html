@@ -98,6 +98,8 @@
       font-size: 14px;
       line-height: 1.5;
       margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     .comment-scores {
       display: flex;
@@ -147,19 +149,19 @@
     <!-- Comments from Employees -->
     <div class="card">
       <div class="section-title">
-        <span>💬 Bình luận từ đồng nghiệp</span>
-        <button class="section-toggle" id="toggleEmployeeComments">Mở</button>
+        <span>💬 Bình luận từ đồng nghiệp <span id="employeeCommentCount" style="color: var(--muted); font-size: 13px;">(0)</span></span>
+        <button class="section-toggle" id="toggleEmployeeComments">Thu gọn</button>
       </div>
-      <div id="employeeComments" class="hidden"></div>
+      <div id="employeeComments"></div>
     </div>
 
     <!-- Comments from Managers -->
     <div class="card">
       <div class="section-title">
-        <span>💬 Bình luận từ lãnh đạo</span>
-        <button class="section-toggle" id="toggleManagerComments">Mở</button>
+        <span>💬 Bình luận từ lãnh đạo <span id="managerCommentCount" style="color: var(--muted); font-size: 13px;">(0)</span></span>
+        <button class="section-toggle" id="toggleManagerComments">Thu gọn</button>
       </div>
-      <div id="managerComments" class="hidden"></div>
+      <div id="managerComments"></div>
     </div>
   </div>
 
@@ -306,6 +308,13 @@
     function renderComments(comments, targetType, containerId) {
       const container = document.getElementById(containerId);
       const filtered = comments.filter(c => c.target_type === targetType);
+
+      // Update count in header
+      const countId = targetType === 'employee' ? 'employeeCommentCount' : 'managerCommentCount';
+      const countEl = document.getElementById(countId);
+      if (countEl) {
+        countEl.textContent = `(${filtered.length})`;
+      }
 
       if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-state">Chưa có bình luận</div>';
