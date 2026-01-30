@@ -946,7 +946,50 @@ export class SheetsClient {
       }).catch(() => ({ data: { values: null } })),
     ]);
 
-    // ----- Parse EVALUATIONS -----
+    // ----- Parse ASSIGNMENTS -----
+    const assignValues = assignResp.data.values || [];
+    const assignHeader = assignValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
+    const idxAssign = (name: string) => assignHeader.indexOf(name.toLowerCase());
+    const assignIdx = {
+      reviewerEmail: idxAssign('reviewer_email'),
+      revieweeEmail: idxAssign('reviewee_email'),
+      targetType: idxAssign('target_type'),
+      status: idxAssign('status'),
+    };
+
+    const makeAssignKey = (reviewer: string, reviewee: string, targetType: string) =>
+      `${reviewer.toLowerCase()}|${reviewee.toLowerCase()}|${(targetType || '').toUpperCase()}`;
+    const assignmentKeySet = new Set<string>();
+
+    const totalAssignments = Math.max(assignValues.length - 1, 0);
+    let completedAssignments = 0;
+    const pendingByReviewer = new Map<string, number>();
+    const revieweesFromAssignments = new Set<string>();
+
+    if (assignValues.length > 1 && assignIdx.reviewerEmail >= 0 && assignIdx.revieweeEmail >= 0 && assignIdx.status >= 0) {
+      for (let i = 1; i < assignValues.length; i++) {
+        const row = assignValues[i];
+        const reviewer = (row[assignIdx.reviewerEmail] || '').trim();
+        const reviewee = (row[assignIdx.revieweeEmail] || '').trim();
+        const targetType = (row[assignIdx.targetType] || '').trim();
+        const status = (row[assignIdx.status] || '').trim().toUpperCase();
+        if (reviewee) revieweesFromAssignments.add(reviewee.toLowerCase());
+        if (reviewer && reviewee && targetType) {
+          assignmentKeySet.add(makeAssignKey(reviewer, reviewee, targetType));
+        }
+
+        if (status === 'COMPLETED') {
+          completedAssignments += 1;
+        } else {
+          // pending assignment của reviewer
+          if (reviewer) {
+            pendingByReviewer.set(reviewer.toLowerCase(), (pendingByReviewer.get(reviewer.toLowerCase()) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    // ----- Parse EVALUATIONS (only if linked to ASSIGNMENTS) -----
     const evalValues = evalResp.data.values || [];
     const evalHeader = evalValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
     const idxEval = (name: string) => evalHeader.indexOf(name.toLowerCase());
@@ -960,14 +1003,16 @@ export class SheetsClient {
 
     // Tính tổng điểm theo evaluation_id trước (mỗi evaluation có nhiều dòng criteria)
     const evaluationTotals = new Map<string, { revieweeEmail: string; targetType: string; totalScore: number }>();
-    if (evalValues.length > 1 && evalIdx.evaluationId >= 0 && evalIdx.revieweeEmail >= 0 && evalIdx.targetType >= 0) {
+    if (evalValues.length > 1 && evalIdx.evaluationId >= 0 && evalIdx.revieweeEmail >= 0 && evalIdx.targetType >= 0 && evalIdx.reviewerEmail >= 0) {
       for (let i = 1; i < evalValues.length; i++) {
         const row = evalValues[i];
         const evalId = row[evalIdx.evaluationId];
+        const reviewerEmail = (row[evalIdx.reviewerEmail] || '').trim();
         const revieweeEmail = (row[evalIdx.revieweeEmail] || '').trim();
-        const targetType = row[evalIdx.targetType] || '';
+        const targetType = (row[evalIdx.targetType] || '').trim();
         const scoreVal = evalIdx.score >= 0 ? Number(row[evalIdx.score]) : Number(row[5]);
-        if (!evalId || !revieweeEmail || isNaN(scoreVal)) continue;
+        if (!evalId || !reviewerEmail || !revieweeEmail || !targetType || isNaN(scoreVal)) continue;
+        if (!assignmentKeySet.has(makeAssignKey(reviewerEmail, revieweeEmail, targetType))) continue;
 
         const existing = evaluationTotals.get(evalId) || { revieweeEmail, targetType, totalScore: 0 };
         existing.totalScore += scoreVal;
@@ -1011,41 +1056,6 @@ export class SheetsClient {
 
     const topEmployees = toDisplay(topEmployeesRaw, 5);
     const topManagers = toDisplay(topManagersRaw, 3);
-
-    // ----- Parse ASSIGNMENTS -----
-    const assignValues = assignResp.data.values || [];
-    const assignHeader = assignValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
-    const idxAssign = (name: string) => assignHeader.indexOf(name.toLowerCase());
-    const assignIdx = {
-      reviewerEmail: idxAssign('reviewer_email'),
-      revieweeEmail: idxAssign('reviewee_email'),
-      targetType: idxAssign('target_type'),
-      status: idxAssign('status'),
-    };
-
-    const totalAssignments = Math.max(assignValues.length - 1, 0);
-    let completedAssignments = 0;
-    const pendingByReviewer = new Map<string, number>();
-    const revieweesFromAssignments = new Set<string>();
-
-    if (assignValues.length > 1 && assignIdx.reviewerEmail >= 0 && assignIdx.revieweeEmail >= 0 && assignIdx.status >= 0) {
-      for (let i = 1; i < assignValues.length; i++) {
-        const row = assignValues[i];
-        const reviewer = (row[assignIdx.reviewerEmail] || '').trim();
-        const reviewee = (row[assignIdx.revieweeEmail] || '').trim();
-        const status = (row[assignIdx.status] || '').trim().toUpperCase();
-        if (reviewee) revieweesFromAssignments.add(reviewee.toLowerCase());
-
-        if (status === 'COMPLETED') {
-          completedAssignments += 1;
-        } else {
-          // pending assignment của reviewer
-          if (reviewer) {
-            pendingByReviewer.set(reviewer.toLowerCase(), (pendingByReviewer.get(reviewer.toLowerCase()) || 0) + 1);
-          }
-        }
-      }
-    }
 
     const notEvaluatedReviewers = Array.from(pendingByReviewer.entries())
       .map(([email, pending]) => {
@@ -1111,7 +1121,7 @@ export class SheetsClient {
     const emailLower = revieweeEmail.trim().toLowerCase();
 
     // Fetch song song: employees map, evaluations, criteria
-    const [employeeMap, evalResp, criteriaResp] = await Promise.all([
+    const [employeeMap, evalResp, criteriaResp, assignResp] = await Promise.all([
       this.getAllEmployeesAsMap(),
       this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
@@ -1120,6 +1130,10 @@ export class SheetsClient {
       this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'CRITERIA!A:H',
+      }).catch(() => ({ data: { values: null } })),
+      this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ASSIGNMENTS!A:K',
       }).catch(() => ({ data: { values: null } })),
     ]);
 
@@ -1151,12 +1165,53 @@ export class SheetsClient {
       }
     }
 
+    // Parse assignments where this person is reviewer
+    const assignValues = assignResp.data.values || [];
+    const assignHeader = assignValues[0]?.map((h: string) => (h || '').trim().toLowerCase()) || [];
+    const idxAssign = (name: string) => assignHeader.indexOf(name.toLowerCase());
+    const assignIdx = {
+      reviewerEmail: idxAssign('reviewer_email'),
+      revieweeEmail: idxAssign('reviewee_email'),
+      targetType: idxAssign('target_type'),
+      status: idxAssign('status'),
+    };
+
+    const reviewsGiven: Record<string, any[]> = { EMPLOYEE: [], MANAGER: [] };
+    if (assignValues.length > 1 && assignIdx.reviewerEmail >= 0 && assignIdx.revieweeEmail >= 0 && assignIdx.targetType >= 0) {
+      for (let i = 1; i < assignValues.length; i++) {
+        const row = assignValues[i];
+        const reviewerEmail = (row[assignIdx.reviewerEmail] || '').trim().toLowerCase();
+        if (reviewerEmail !== emailLower) continue;
+        const revieweeEmail = (row[assignIdx.revieweeEmail] || '').trim();
+        const targetType = (row[assignIdx.targetType] || '').trim().toUpperCase();
+        const status = (row[assignIdx.status] || '').trim().toUpperCase();
+        if (!revieweeEmail || !targetType) continue;
+
+        const revieweeInfo = employeeMap.get(revieweeEmail.toLowerCase()) || { email: revieweeEmail, name: revieweeEmail } as any;
+        const entry = {
+          reviewer_email: emailLower,
+          reviewee_email: revieweeEmail,
+          target_type: targetType,
+          status: status || 'PENDING',
+          reviewee: {
+            email: revieweeInfo.email || revieweeEmail,
+            name: revieweeInfo.name || revieweeEmail,
+            department: revieweeInfo.department,
+            position: revieweeInfo.position,
+          }
+        };
+        if (!reviewsGiven[targetType]) reviewsGiven[targetType] = [];
+        reviewsGiven[targetType].push(entry);
+      }
+    }
+
     // Parse evaluations for this reviewee
     const eVals = evalResp.data.values || [];
     if (eVals.length <= 1) {
       return {
         reviewee: employee,
-        targets: {}
+        targets: {},
+        reviewsGiven
       };
     }
     const eHeader = eVals[0].map((h: string) => (h || '').trim().toLowerCase());
@@ -1173,6 +1228,7 @@ export class SheetsClient {
       totalScore: number;
       evalIds: Set<string>;
       criteria: Map<string, { total: number; count: number; name: string; category?: string; level?: number }>;
+      reviewers: Map<string, { email: string; name: string; evalId: string }>;
     }> = {};
 
     for (let i = 1; i < eVals.length; i++) {
@@ -1182,16 +1238,27 @@ export class SheetsClient {
       const target = (row[eIdx.target] || '').trim();
       if (!target) continue;
       const evalId = (row[eIdx.evalId] || '').toString();
+      const reviewerEmail = (row[eIdx.reviewer] || '').trim();
       const criteriaId = (row[eIdx.criteriaId] || '').toString();
       const scoreVal = eIdx.score >= 0 ? Number(row[eIdx.score]) : Number(row[5]);
       if (!criteriaId || isNaN(scoreVal)) continue;
 
       if (!perTarget[target]) {
-        perTarget[target] = { totalScore: 0, evalIds: new Set<string>(), criteria: new Map() };
+        perTarget[target] = { totalScore: 0, evalIds: new Set<string>(), criteria: new Map(), reviewers: new Map() };
       }
       const bucket = perTarget[target];
       bucket.totalScore += scoreVal;
       if (evalId) bucket.evalIds.add(evalId);
+
+      // Track reviewers for this target_type
+      if (reviewerEmail && evalId && !bucket.reviewers.has(reviewerEmail)) {
+        const reviewerInfo = employeeMap.get(reviewerEmail.toLowerCase()) || { email: reviewerEmail, name: reviewerEmail } as any;
+        bucket.reviewers.set(reviewerEmail, {
+          email: reviewerEmail,
+          name: reviewerInfo.name || reviewerEmail,
+          evalId: evalId
+        });
+      }
 
       const cInfo = criteriaMap.get(criteriaId);
       const cName = cInfo?.name || criteriaId;
@@ -1257,13 +1324,15 @@ export class SheetsClient {
         evaluationCount: data.evalIds.size,
         averageScore: data.evalIds.size > 0 ? Math.round((data.totalScore / data.evalIds.size) * 10) / 10 : 0,
         categories: categories,
-        criteria: withoutCategory
+        criteria: withoutCategory,
+        reviewers: Array.from(data.reviewers.values()).sort((a, b) => a.name.localeCompare(b.name))
       };
     }
 
     return {
       reviewee: employee,
-      targets
+      targets,
+      reviewsGiven
     };
   }
 

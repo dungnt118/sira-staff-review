@@ -59,6 +59,45 @@
     .loader { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .reviewer-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .reviewer-item { 
+      background: var(--card-2); 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      padding: 10px 12px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .reviewer-item:hover { 
+      border-color: var(--accent); 
+      background: rgba(245, 158, 11, 0.05); 
+    }
+    .reviewer-name { font-weight: 600; color: #fff; }
+    .reviewer-email { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .view-icon { color: var(--accent); font-size: 18px; }
+
+    .assignments-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .assignment-item {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .assignment-main { display: flex; flex-direction: column; gap: 4px; }
+    .assignment-name { font-weight: 700; color: #fff; }
+    .assignment-meta { color: var(--muted); font-size: 12px; }
+    .status-chip { padding: 4px 8px; border-radius: 8px; font-weight: 700; font-size: 11px; }
+    .status-done { background: rgba(34,197,94,0.2); color: var(--good); }
+    .status-pending { background: rgba(59,130,246,0.2); color: var(--mid); }
+    .btn-view { background: rgba(245, 158, 11, 0.15); color: var(--accent); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
+
     @media (max-width: 768px) { .header { flex-direction: column; align-items: flex-start; } }
   </style>
 </head>
@@ -155,6 +194,104 @@
       metric2.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${evalCount}</div>`;
       card.appendChild(metric2);
 
+      return card;
+    }
+
+    function renderReviewersList(reviewers, targetType, revieweeEmail) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const header = document.createElement('div');
+      header.className = 'section-title';
+      const typeLabel = targetType === 'EMPLOYEE' ? 'Nhân viên' : 'Lãnh đạo';
+      header.innerHTML = `👥 Người đánh giá (${typeLabel})`;
+      card.appendChild(header);
+
+      if (!reviewers || reviewers.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'Chưa có người đánh giá';
+        card.appendChild(empty);
+        return card;
+      }
+
+      const list = document.createElement('div');
+      list.className = 'reviewer-list';
+
+      reviewers.forEach(reviewer => {
+        const item = document.createElement('div');
+        item.className = 'reviewer-item';
+        item.onclick = () => {
+          const url = `evaluation.html?reviewer_email=${encodeURIComponent(reviewer.email)}&reviewee_email=${encodeURIComponent(revieweeEmail)}&target_type=${targetType}&mode=view`;
+          window.location.href = url;
+        };
+        
+        item.innerHTML = `
+          <div>
+            <div class="reviewer-name">${reviewer.name}</div>
+            <div class="reviewer-email">${reviewer.email}</div>
+          </div>
+          <div class="view-icon">👁️</div>
+        `;
+        list.appendChild(item);
+      });
+
+      card.appendChild(list);
+      return card;
+    }
+
+    function renderReviewedAssignments(assignments, targetType, reviewerEmail) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const header = document.createElement('div');
+      header.className = 'section-title';
+      const typeLabel = targetType === 'EMPLOYEE' ? 'Nhân viên' : 'Lãnh đạo';
+      header.innerHTML = `🧾 Nhiệm vụ (${typeLabel})`;
+      card.appendChild(header);
+
+      if (!assignments || assignments.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'Chưa có nhiệm vụ.';
+        card.appendChild(empty);
+        return card;
+      }
+
+      const list = document.createElement('div');
+      list.className = 'assignments-list';
+
+      assignments.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'assignment-item';
+
+        const name = item.reviewee?.name || item.reviewee_email;
+        const email = item.reviewee?.email || item.reviewee_email;
+        const meta = [item.reviewee?.department, item.reviewee?.position].filter(Boolean).join(' • ');
+
+        const isCompleted = (item.status || '').toUpperCase() === 'COMPLETED';
+        const statusLabel = isCompleted ? 'Đã hoàn thành' : 'Chưa hoàn thành';
+        const statusClass = isCompleted ? 'status-done' : 'status-pending';
+
+        row.innerHTML = `
+          <div class="assignment-main">
+            <div class="assignment-name">${name}</div>
+            <div class="assignment-meta">${email}${meta ? ' • ' + meta : ''}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="status-chip ${statusClass}">${statusLabel}</span>
+            <button class="btn-view">Xem</button>
+          </div>
+        `;
+
+        const btn = row.querySelector('.btn-view');
+        btn.onclick = () => {
+          const url = `evaluation.html?mode=view&reviewer_email=${encodeURIComponent(reviewerEmail)}&reviewee_email=${encodeURIComponent(item.reviewee_email)}&target_type=${targetType}`;
+          window.location.href = url;
+        };
+
+        list.appendChild(row);
+      });
+
+      card.appendChild(list);
       return card;
     }
 
@@ -280,6 +417,13 @@
         loading.classList.add('hidden');
         content.classList.remove('hidden');
 
+        // Render danh sách đã đánh giá (theo assignments)
+        const reviewsGiven = data.reviewsGiven || {};
+        const reviewerEmail = rv.email || revieweeEmail;
+
+        reports.appendChild(renderReviewedAssignments(reviewsGiven.EMPLOYEE || [], 'EMPLOYEE', reviewerEmail));
+        reports.appendChild(renderReviewedAssignments(reviewsGiven.MANAGER || [], 'MANAGER', reviewerEmail));
+
         // Render báo cáo theo từng target_type
         const targets = data.targets || {};
         
@@ -291,6 +435,7 @@
             empTarget.averageScore || 0,
             empTarget.evaluationCount || 0
           ));
+          reports.appendChild(renderReviewersList(empTarget.reviewers, 'EMPLOYEE', revieweeEmail));
           reports.appendChild(renderTargetWithHierarchy(empTarget, '📊 Chi tiết tiêu chí Nhân viên'));
         }
 
@@ -302,6 +447,7 @@
             mgTarget.averageScore || 0,
             mgTarget.evaluationCount || 0
           ));
+          reports.appendChild(renderReviewersList(mgTarget.reviewers, 'MANAGER', revieweeEmail));
           reports.appendChild(renderTargetWithHierarchy(mgTarget, '📊 Chi tiết tiêu chí Lãnh đạo'));
         }
 
