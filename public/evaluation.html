@@ -75,8 +75,9 @@
       <div id="criteriaContainer"></div>
 
       <div style="margin-top:16px;">
-        <label for="comments" style="font-weight:600; color:#333;">Nhận xét bổ sung (tuỳ chọn)</label>
-        <textarea id="comments" placeholder="Nhận xét..." ></textarea>
+        <label for="comments" style="font-weight:600; color:#333;">Nhận xét bổ sung <span style="color:red;">*</span></label>
+        <textarea id="comments" placeholder="# Ưu điểm&#10;...&#10;# Nhược điểm&#10;...&#10;# Kỳ vọng" required></textarea>
+        <div id="commentsError" style="color:#c62828; font-size:13px; margin-top:4px; display:none;"></div>
       </div>
 
       <div class="actions">
@@ -317,6 +318,23 @@
       try {
         const criteria_scores = collectScores();
         const comments = (document.getElementById('comments').value || '').trim();
+        const commentsError = document.getElementById('commentsError');
+        
+        // Validate comments
+        if (!comments) {
+          commentsError.textContent = '❌ Nhận xét bổ sung là bắt buộc';
+          commentsError.style.display = 'block';
+          document.getElementById('comments').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (comments.length < 80) {
+          commentsError.textContent = `❌ Nhận xét phải tối thiểu 80 ký tự (hiện có ${comments.length}/80)`;
+          commentsError.style.display = 'block';
+          document.getElementById('comments').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        commentsError.style.display = 'none';
+        
         const result = await window.SIRA_API.saveEvaluation(
           assignment.reviewer_email,
           assignment.reviewee_email,
