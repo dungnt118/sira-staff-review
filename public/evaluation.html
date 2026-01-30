@@ -104,11 +104,8 @@
       }
     })();
 
-    // Kiểm tra mode (view hoặc edit, default là edit)
+    // URL parameters (chỉ support edit mode)
     const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode') || 'edit';
-    const isViewMode = mode === 'view';
-    const isEditMode = mode === 'edit';
   </script>
   
   <script type="module">
@@ -146,25 +143,23 @@
     }
 
     function getAssignment() {
-      // Nếu có URL query parameters (mode=view hoặc mode=edit), lấy từ URL
-      if (isViewMode || isEditMode) {
-        const reviewer_email = urlParams.get('reviewer_email');
-        const reviewee_email = urlParams.get('reviewee_email');
-        const target_type = urlParams.get('target_type');
-        
-        if (reviewer_email && reviewee_email && target_type) {
-          return {
-            reviewer_email: reviewer_email,
-            reviewee_email: reviewee_email,
-            target_type: target_type,
-            reviewee: {
-              email: reviewee_email,
-              name: '',
-              department: '',
-              position: ''
-            }
-          };
-        }
+      // Lấy từ URL query parameters
+      const reviewer_email = urlParams.get('reviewer_email');
+      const reviewee_email = urlParams.get('reviewee_email');
+      const target_type = urlParams.get('target_type');
+      
+      if (reviewer_email && reviewee_email && target_type) {
+        return {
+          reviewer_email: reviewer_email,
+          reviewee_email: reviewee_email,
+          target_type: target_type,
+          reviewee: {
+            email: reviewee_email,
+            name: '',
+            department: '',
+            position: ''
+          }
+        };
       }
       
       // Fallback: lấy từ sessionStorage (cách cũ, không khuyến nghị)
@@ -363,52 +358,29 @@
         setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
         return;
       }
-      // Tải thông tin người được đánh giá nếu ở chế độ view hoặc edit
-      if (isViewMode || isEditMode) {
-        await loadRevieweeInfo(assignment);
-      }
-      // Hiển thị notifier nếu ở chế độ view
-      if (isViewMode) {
-        const viewIndicator = document.createElement('div');
-        viewIndicator.style.cssText = 'background: #e3f2fd; border: 1px solid #2196f3; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #1565c0; display: flex; align-items: center; gap: 8px;';
-        viewIndicator.innerHTML = `<span>🔍</span><strong>Chế độ xem - Không thể chỉnh sửa</strong>`;
-        messageBox.insertBefore(viewIndicator, messageBox.firstChild);
-      }
+      // Tải thông tin người được đánh giá
+      await loadRevieweeInfo(assignment);
 
       renderAssignmentInfo(assignment);
       await loadCriteria(assignment);
 
-      // Check xem đã có evaluation trước đó không (re-evaluation case)
+      // Kiểm tra và load existing evaluation (re-evaluation case)
       if (assignment.reviewer_email && assignment.reviewee_email && assignment.target_type) {
         try {
-          console.log('DEBUG: Calling getEvaluation with:', {
-            reviewer_email: assignment.reviewer_email,
-            reviewee_email: assignment.reviewee_email,
-            target_type: assignment.target_type,
-            isViewMode: isViewMode
-          });
-          
           const result = await window.SIRA_API.getEvaluation(
             assignment.reviewer_email,
             assignment.reviewee_email,
             assignment.target_type
           );
           
-          console.log('DEBUG: getEvaluation result:', result);
-          
           if (result.success && result.exists) {
-            console.log('Found existing evaluation:', result);
+            console.log('Found existing evaluation - loading for re-evaluation');
             
             // Pre-fill scores
             if (result.criteria_scores && result.criteria_scores.length > 0) {
-              console.log('Pre-filling scores:', result.criteria_scores);
               result.criteria_scores.forEach(item => {
-                // Radio name format: c_{criteriaId}
                 const radio = document.querySelector(`input[name="c_${item.criteria_id}"][value="${item.score}"]`);
-                console.log(`Looking for input[name="c_${item.criteria_id}"][value="${item.score}"]`, radio ? 'FOUND' : 'NOT FOUND');
-                if (radio) {
-                  radio.checked = true;
-                }
+                if (radio) radio.checked = true;
               });
             }
 
@@ -420,32 +392,11 @@
             // Show re-evaluation indicator
             const indicator = document.createElement('div');
             indicator.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 8px; margin-bottom: 16px; color: #856404;';
-            indicator.innerHTML = `<strong>📝 Đang chỉnh sửa đánh giá trước</strong><br>Bạn đã đánh giá người này vào ${result.evaluation_date || 'trước đó'}. Gửi lại sẽ cập nhật đánh giá.`;
+            indicator.innerHTML = `<strong>📝 Chỉnh sửa đánh giá trước đó</strong><br>Đánh giá trước: ${result.evaluation_date || 'N/A'}. Gửi sẽ <strong>ghi đè</strong> đánh giá cũ.`;
             messageBox.appendChild(indicator);
-          } else {
-            console.log('DEBUG: No existing evaluation found or API error');
           }
         } catch (err) {
           console.error('Error loading existing evaluation:', err);
-          // Không hiển thị lỗi cho user, tiếp tục với form trống
-        }
-      }
-
-      // Nếu mode view, disable tất cả inputs và ẩn submit button
-      if (isViewMode) {
-        // Disable tất cả input radio
-        const radios = document.querySelectorAll('input[type="radio"]');
-        radios.forEach(radio => radio.disabled = true);
-
-        // Disable textarea comments
-        const comments = document.getElementById('comments');
-        if (comments) comments.disabled = true;
-
-        // Ẩn button submit, chỉ giữ "Quay lại"
-        const actions = document.querySelector('.actions');
-        if (actions) {
-          const submitBtn = actions.querySelector('button[type="submit"]');
-          if (submitBtn) submitBtn.style.display = 'none';
         }
       }
     })();
