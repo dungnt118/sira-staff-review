@@ -1292,6 +1292,8 @@ export class SheetsClient {
       target: eHeader.indexOf('target_type'),
       criteriaId: eHeader.indexOf('criteria_id'),
       score: eHeader.indexOf('score'),
+      comments: eHeader.indexOf('comments'),
+      evaluationDate: eHeader.indexOf('evaluation_date'),
     };
 
     const perTarget: Record<string, {
@@ -1302,6 +1304,16 @@ export class SheetsClient {
       criteriaScoreSum: number;
       criteriaCount: number;
     }> = {};
+
+    // Map to collect comments per evaluation_id
+    const evaluationComments = new Map<string, { 
+      evalId: string;
+      reviewerEmail: string;
+      targetType: string;
+      comment: string;
+      date: string;
+      criteriaScores: Array<{ criteriaId: string; score: number }>;
+    }>();
 
     for (let i = 1; i < eVals.length; i++) {
       const row = eVals[i];
@@ -1332,6 +1344,25 @@ export class SheetsClient {
           name: reviewerInfo.name || reviewerEmail,
           evalId: evalId
         });
+      }
+
+      // Collect comments per evaluation_id (chỉ lấy lần đầu tiên gặp evalId)
+      if (evalId && !evaluationComments.has(evalId)) {
+        const comment = eIdx.comments >= 0 ? (row[eIdx.comments] || '').trim() : '';
+        const evalDate = eIdx.evaluationDate >= 0 ? (row[eIdx.evaluationDate] || '') : '';
+        evaluationComments.set(evalId, {
+          evalId: evalId,
+          reviewerEmail: reviewerEmail,
+          targetType: target,
+          comment: comment,
+          date: evalDate,
+          criteriaScores: []
+        });
+      }
+
+      // Add criteria score to comment (nếu evalId tồn tại trong map)
+      if (evalId && evaluationComments.has(evalId)) {
+        evaluationComments.get(evalId)!.criteriaScores.push({ criteriaId, score: scoreVal });
       }
 
       const cInfo = criteriaMap.get(criteriaId);
@@ -1407,10 +1438,36 @@ export class SheetsClient {
       };
     }
 
+    // Format comments with criteria names (chỉ lấy những comment có text)
+    const comments = Array.from(evaluationComments.values())
+      .filter(ec => ec.comment && ec.comment.trim().length > 0)
+      .map(ec => {
+        const criteriaScores = ec.criteriaScores.map(cs => {
+          const cInfo = criteriaMap.get(cs.criteriaId);
+          return {
+            name: cInfo?.name || cs.criteriaId,
+            score: cs.score
+          };
+        });
+        const totalScore = criteriaScores.reduce((sum, cs) => sum + cs.score, 0);
+        return {
+          reviewer_email: ec.reviewerEmail,
+          target_type: ec.targetType.toLowerCase(),
+          date: ec.date,
+          total_score: totalScore,
+          comment: ec.comment,
+          criteria_scores: criteriaScores
+        };
+      });
+
+    // Sort comments by date (newest first)
+    comments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return {
       reviewee: employee,
       targets,
-      reviewsGiven
+      reviewsGiven,
+      comments
     };
   }
 

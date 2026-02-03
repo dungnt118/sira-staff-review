@@ -100,6 +100,53 @@
     .status-pending { background: rgba(59,130,246,0.2); color: var(--mid); }
     .btn-view { background: rgba(245, 158, 11, 0.15); color: var(--accent); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
 
+    .comment-item {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .comment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .reviewer-name-badge {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .comment-text {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: var(--text);
+    }
+    .comment-scores {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .score-tag {
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
     @media (max-width: 768px) { .header { flex-direction: column; align-items: flex-start; } }
   </style>
 </head>
@@ -183,6 +230,18 @@
       return Math.round(num * 100) / 100;
     }
 
+    async function loadReviewerName(email) {
+      try {
+        const result = await window.SIRA_API.lookupEmployee(email);
+        if (result.success && result.employee) {
+          return result.employee.name || email;
+        }
+      } catch (err) {
+        console.error('Error loading reviewer name:', err);
+      }
+      return email;
+    }
+
     function renderSummaryCard(title, avgCriteriaScore, avgTotalScore, evalCount) {
       const card = document.createElement('div');
       card.className = 'card';
@@ -206,6 +265,74 @@
       metric3.innerHTML = `<div class="label">Số lần đánh giá</div><div class="value">${evalCount}</div>`;
       card.appendChild(metric3);
 
+      return card;
+    }
+
+    async function renderCommentsSection(comments, targetType, title) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const header = document.createElement('div');
+      header.className = 'section-title';
+      const filtered = comments.filter(c => c.target_type === targetType);
+      header.innerHTML = `${title} <span class="muted" style="font-size:13px;">(${filtered.length})</span>`;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'section-toggle';
+      toggleBtn.type = 'button';
+      toggleBtn.textContent = 'Mở';
+      header.appendChild(toggleBtn);
+      card.appendChild(header);
+
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'Chưa có bình luận';
+        card.appendChild(empty);
+        return card;
+      }
+
+      const list = document.createElement('div');
+      list.className = 'hidden';
+      list.style.marginTop = '12px';
+
+      // Load reviewer names
+      const commentsWithNames = await Promise.all(
+        filtered.map(async (c) => {
+          const reviewerName = await loadReviewerName(c.reviewer_email);
+          return { ...c, reviewerName };
+        })
+      );
+
+      commentsWithNames.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'comment-item';
+        
+        const scoresList = (c.criteria_scores || []).map(cs => 
+          `<span class="score-tag">${cs.name}: ${cs.score}</span>`
+        ).join('');
+
+        item.innerHTML = `
+          <div class="comment-header">
+            <span class="reviewer-name-badge">👤 ${c.reviewerName}</span>
+            <span>${new Date(c.date).toLocaleDateString('vi-VN')} • Tổng: <strong>${formatScore(c.total_score)}</strong></span>
+          </div>
+          <div class="comment-text">${c.comment}</div>
+          ${scoresList ? `<div class="comment-scores">${scoresList}</div>` : ''}
+        `;
+        list.appendChild(item);
+      });
+
+      card.appendChild(list);
+
+      toggleBtn.onclick = () => {
+        const isHidden = list.classList.contains('hidden');
+        if (isHidden) {
+          list.classList.remove('hidden');
+          toggleBtn.textContent = 'Thu gọn';
+        } else {
+          list.classList.add('hidden');
+          toggleBtn.textContent = 'Mở';
+        }
+      };
       return card;
     }
 
@@ -513,6 +640,25 @@
           empty.className = 'card';
           empty.innerHTML = '<div class="muted" style="text-align:center;">Chưa có đánh giá nào</div>';
           reports.appendChild(empty);
+        }
+
+        // Render comments nếu có trong response
+        if (data.comments && data.comments.length > 0) {
+          // Render comments từ đồng nghiệp
+          const employeeCommentsCard = await renderCommentsSection(
+            data.comments,
+            'employee',
+            '💬 Bình luận từ đồng nghiệp'
+          );
+          reports.appendChild(employeeCommentsCard);
+
+          // Render comments từ lãnh đạo
+          const managerCommentsCard = await renderCommentsSection(
+            data.comments,
+            'manager',
+            '💼 Bình luận từ lãnh đạo'
+          );
+          reports.appendChild(managerCommentsCard);
         }
       } catch (err) {
         console.error(err);
